@@ -17,9 +17,12 @@ import os
 import cv2
 
 
-ADDR = '192.168.31.186'
-# ADDR = '192.168.31.116'
+# ADDR = '192.168.31.186'
+ADDR = '192.168.31.101'
 # ADDR = '172.16.1.123'
+
+
+
 
 
 class Desktop(QMainWindow):
@@ -60,7 +63,7 @@ class Desktop(QMainWindow):
 
         return img
 
-    def ChangeImage(self):
+    def send_screenshot(self):
         # if len(self.ip.text()) != 0 and len(self.port.text()):
         sock = socket()
         #     print(self.ip.text(), int(self.port.text()))
@@ -83,7 +86,7 @@ class Desktop(QMainWindow):
             # send image
             sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
             sock.send(img_bytes.getvalue())
-            sock.recv(1)
+            # sock.recv(1)
         sock.close()
 
 
@@ -150,7 +153,7 @@ class Desktop(QMainWindow):
         self.setGeometry(QRect(win.GetSystemMetrics(0)// 4,win.GetSystemMetrics(1)  // 4, 400, 100))
         self.setFixedSize(self.width(), self.height())
         self.setWindowTitle("[CLIENT] Remote Desktop")
-        self.start = Thread(target=self.ChangeImage, daemon=True)
+        self.start = Thread(target=self.send_screenshot, daemon=True)
         self.btn = QPushButton(self)
         self.btn.move(5, 55)
         self.btn.resize(390, 30)
