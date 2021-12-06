@@ -15,8 +15,8 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QRect, Qt
 
 sock = socket.socket()
-ADDR = '192.168.31.186'
-# ADDR = '192.168.31.116'
+# ADDR = '192.168.31.186'
+ADDR = '192.168.31.101'
 # ADDR = '172.16.1.123'
 # ADDR = '172.16.5.148'
 sock.bind((ADDR, 12121))
@@ -24,6 +24,7 @@ sock.listen()
 conn, addr = sock.accept()
 
 scale_x, scale_y = 2, 2
+
 
 class Dekstop(QMainWindow):
     def __init__(self):
@@ -33,22 +34,14 @@ class Dekstop(QMainWindow):
     def ScreenSharing(self):
         global scale_x, scale_y
         try:
-            print("[SERVER]: CONNECTED: {0}!".format(addr[0]))
-            screenSize = conn.recv(64)
-            print(screenSize)
-            screenSize = screenSize.decode()
-            self.setGeometry(win.GetSystemMetrics(0)//4, win.GetSystemMetrics(0)//4,  # place x, place y
-                             eval(screenSize)[0]//scale_x, eval(screenSize)[1]//scale_y)  # width , height
-            conn.send(b'1')
-            self.setFixedSize(self.width(), self.height())
-            self.controlling = Thread(target=self.Controlling, daemon=True)
-            self.controlling.start()
+            # self.setGeometry(400, 200, eval(screenSize)[0] // scale_x, eval(screenSize)[1] // scale_y)
             while True:
                 img_len = conn.recv(64)
                 img = conn.recv(eval(img_len.decode()))
                 while len(img) != eval(img_len.decode()):
-                    img += conn.recv(eval(img_len.decode())-len(img))
-                conn.send(b'1')
+                    img += conn.recv(eval(img_len.decode()) - len(img))
+                # image = QImage(eval(img).data, eval(img).shape[1],eval(img).shape[0],eval(img).shape[1]*3,QImage.Format_RGB888)
+                # conn.send(b'1')
                 self.pixmap.loadFromData(img)
                 self.label.setScaledContents(True)
                 self.label.resize(self.width(), self.height())
@@ -57,6 +50,8 @@ class Dekstop(QMainWindow):
         except ConnectionResetError:
             QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing connection!")
             conn.close()
+        except Exception as e:
+            print(e)
 
     def Controlling(self):
         new_conn = socket.socket()
@@ -66,8 +61,8 @@ class Dekstop(QMainWindow):
 
         def on_move(x, y):
             win_x, win_y = self.frameGeometry().x() + (
-                        self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                       self.frameGeometry().height() - self.label.height())
+                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
+                                   self.frameGeometry().height() - self.label.height())
             win_width, win_height = self.label.width(), self.label.height()
             if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
                 x = x - win_x
@@ -79,8 +74,8 @@ class Dekstop(QMainWindow):
 
         def on_click(x, y, button, pressed):
             win_x, win_y = self.frameGeometry().x() + (
-                        self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                       self.frameGeometry().height() - self.label.height())
+                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
+                                   self.frameGeometry().height() - self.label.height())
             win_width, win_height = self.label.width(), self.label.height()
             if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
                 command = str(['CLICK' if pressed else 'RELEASE', str(button)])
@@ -90,8 +85,8 @@ class Dekstop(QMainWindow):
 
         def on_scroll(x, y, dx, dy):
             win_x, win_y = self.frameGeometry().x() + (
-                        self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                       self.frameGeometry().height() - self.label.height())
+                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
+                                   self.frameGeometry().height() - self.label.height())
             win_width, win_height = self.label.width(), self.label.height()
             if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
                 command = str(['SCROLL', dy])
@@ -104,7 +99,7 @@ class Dekstop(QMainWindow):
 
         def on_press(key):
             ms = mouse.Controller()
-            x,y = ms.position
+            x, y = ms.position
             win_x, win_y = self.frameGeometry().x() + (
                     self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
                                    self.frameGeometry().height() - self.label.height())
@@ -118,13 +113,29 @@ class Dekstop(QMainWindow):
         listener.start()
 
     def initUI(self):
-        self.pixmap = QPixmap()
-        self.label = QLabel(self)
-        self.label.resize(self.width(), self.height())
-        self.setWindowTitle("[SERVER] Remote Desktop")
-        self.screenSharing = Thread(target=self.ScreenSharing, daemon=True)
-        self.screenSharing.start()
-
+        global scale_x, scale_y
+        try:
+            print("[SERVER]: CONNECTED: {0}!".format(addr[0]))
+            screenSize = conn.recv(64)
+            print(screenSize)
+            screenSize = screenSize.decode()
+            self.setGeometry(win.GetSystemMetrics(0) // 4, win.GetSystemMetrics(0) // 4, eval(screenSize)[0] // scale_x,
+                             eval(screenSize)[1] // scale_y)
+            self.setFixedSize(self.width(), self.height())
+            print(1)
+            conn.send(b'1')
+            self.pixmap = QPixmap()
+            self.label = QLabel(self)
+            self.label.resize(self.width(), self.height())
+            self.setWindowTitle("[SERVER] Remote Desktop")
+            # self.setGeometry(600, 200, 1920//scale_x, 1080//scale_y)
+            self.screenSharing = Thread(target=self.ScreenSharing, daemon=True)
+            self.screenSharing.start()
+            self.controlling = Thread(target=self.Controlling, daemon=True)
+            self.controlling.start()
+        except ConnectionResetError:
+            QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing connection!")
+            conn.close()
 
 
 if __name__ == '__main__':
