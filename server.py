@@ -21,7 +21,7 @@ ADDR = '192.168.31.101'
 # ADDR = '172.16.5.148'
 sock.bind((ADDR, 12121))
 sock.listen()
-conn, addr = sock.accept()
+app_windows = {}
 
 scale_x, scale_y = 2, 2
 
@@ -138,8 +138,27 @@ class Dekstop(QMainWindow):
             conn.close()
 
 
+def new_connection(conn_socket, address):
+    if app_windows['main_window']:
+        pass
+    return
+
+
+def listener():
+    while True:
+        try:
+            conn, addr = SERVER.accept()  # establish connection with client
+            # threading between clients and server
+            new_connection_thread = threading.Thread(target=new_connection, args=(conn, addr), daemon=True)
+            new_connection_thread.start()
+        except OSError:
+            sys.exit()
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    listener_thread = threading.Thread(target=listener, daemon=True)
+    listener_thread.start()
     ex = Dekstop()
     ex.show()
     sys.exit(app.exec())

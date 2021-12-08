@@ -22,9 +22,6 @@ ADDR = '192.168.31.101'
 # ADDR = '172.16.1.123'
 
 
-
-
-
 class Desktop(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -167,6 +164,9 @@ class Desktop(QMainWindow):
         self.port.move(5, 30)
         self.port.resize(390, 20)
         self.port.setPlaceholderText("PORT")
+
+
+def LoginWindow():
 
 
 if __name__ == '__main__':
