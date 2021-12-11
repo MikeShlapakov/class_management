@@ -1,0 +1,6 @@
+numpy == 1.20.2
+pillow == 8.4.0
+pywin32 == 302
+pynput == 1.7.5
+opencv-python == 4.5.4.60
+PyQt5 == 5.15.4

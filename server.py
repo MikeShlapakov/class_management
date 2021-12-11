@@ -1,145 +1,116 @@
-import socket
-from os import getlogin
-from PIL import Image, ImageQt, ImageChops
-import io
-from random import randint
-from pynput import mouse, keyboard
-from threading import Thread
+from socket import *
+import threading
 import time
-import win32api as win
-import numpy
-# PyQt5
-import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import QRect, Qt
+import datetime
+from model.server_model import *
+import os
 
-sock = socket.socket()
-# ADDR = '192.168.31.186'
-ADDR = '192.168.31.101'
-# ADDR = '172.16.1.123'
-# ADDR = '172.16.5.148'
-sock.bind((ADDR, 12121))
-sock.listen()
-conn, addr = sock.accept()
+SERVER = socket(AF_INET, SOCK_STREAM)  # server socket
+HOST = "127.0.0.1"  # local host IP
+PORT = 42000  # gets an open port
+SERVER.bind((HOST, PORT))  # bind to the port
 
-scale_x, scale_y = 2, 2
+BUFSIZE = 64  # Buffer size
+SERVER.listen(5)
+
+conn_list = {}  # A dictionary of connections (clients) with a var that represent if the client has chat
 
 
-class Dekstop(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-
-    def ScreenSharing(self):
-        global scale_x, scale_y
-        try:
-            # self.setGeometry(400, 200, eval(screenSize)[0] // scale_x, eval(screenSize)[1] // scale_y)
-            while True:
-                img_len = conn.recv(64)
-                img = conn.recv(eval(img_len.decode()))
-                while len(img) != eval(img_len.decode()):
-                    img += conn.recv(eval(img_len.decode()) - len(img))
-                # image = QImage(eval(img).data, eval(img).shape[1],eval(img).shape[0],eval(img).shape[1]*3,QImage.Format_RGB888)
-                # conn.send(b'1')
-                self.pixmap.loadFromData(img)
-                self.label.setScaledContents(True)
-                self.label.resize(self.width(), self.height())
-                self.label.setPixmap(QPixmap(self.pixmap))
-
-        except ConnectionResetError:
-            QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing connection!")
-            conn.close()
-        except Exception as e:
-            print(e)
-
-    def Controlling(self):
-        new_conn = socket.socket()
-        new_conn.bind((ADDR, 13131))
-        new_conn.listen()
-        conn, addr = new_conn.accept()
-
-        def on_move(x, y):
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - self.label.height())
-            win_width, win_height = self.label.width(), self.label.height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                x = x - win_x
-                y = y - win_y
-                command = str(['MOVE', x * scale_x, y * scale_y])
-                conn.send(command.encode())
-                conn.recv(256)
-            # print('Pointer moved to {0}'.format((x, y)))
-
-        def on_click(x, y, button, pressed):
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - self.label.height())
-            win_width, win_height = self.label.width(), self.label.height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                command = str(['CLICK' if pressed else 'RELEASE', str(button)])
-                conn.send(command.encode())
-                conn.recv(256)
-            # print('{0} at {1} {2}'.format('Pressed' if pressed else 'Released',(x, y), button))
-
-        def on_scroll(x, y, dx, dy):
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - self.label.height())
-            win_width, win_height = self.label.width(), self.label.height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                command = str(['SCROLL', dy])
-                conn.send(command.encode())
-                conn.recv(256)
-            # print('Scrolled {0} at {1}'.format('down' if dy < 0 else 'up',(x, y)))
-
-        listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
-        listener.start()
-
-        def on_press(key):
-            ms = mouse.Controller()
-            x, y = ms.position
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - self.label.height())
-            win_width, win_height = self.label.width(), self.label.height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                command = str(['KEY', str(key)])
-                conn.send(command.encode())
-                conn.recv(256)
-
-        listener = keyboard.Listener(on_press=on_press)
-        listener.start()
-
-    def initUI(self):
-        global scale_x, scale_y
-        try:
-            print("[SERVER]: CONNECTED: {0}!".format(addr[0]))
-            screenSize = conn.recv(64)
-            print(screenSize)
-            screenSize = screenSize.decode()
-            self.setGeometry(win.GetSystemMetrics(0) // 4, win.GetSystemMetrics(0) // 4, eval(screenSize)[0] // scale_x,
-                             eval(screenSize)[1] // scale_y)
-            self.setFixedSize(self.width(), self.height())
-            print(1)
-            conn.send(b'1')
-            self.pixmap = QPixmap()
-            self.label = QLabel(self)
-            self.label.resize(self.width(), self.height())
-            self.setWindowTitle("[SERVER] Remote Desktop")
-            # self.setGeometry(600, 200, 1920//scale_x, 1080//scale_y)
-            self.screenSharing = Thread(target=self.ScreenSharing, daemon=True)
-            self.screenSharing.start()
-            self.controlling = Thread(target=self.Controlling, daemon=True)
-            self.controlling.start()
-        except ConnectionResetError:
-            QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing connection!")
-            conn.close()
+def send_msg(conn, msg=""):
+    """
+    Send message to client
+    :param conn: client socket (socket)
+    :param msg: message (string)
+    :return: sent the message (True/False)
+    """
+    global BUFSIZE, conn_list
+    msg_len = len(msg.encode())
+    try:
+        conn.send((str(msg_len) + ' ' * (BUFSIZE - len(str(msg_len)))).encode())
+        conn.send(msg.encode())
+    except ConnectionResetError:
+        print(f"{conn} left")
+        return False
+    except ConnectionAbortedError:
+        print(f"{conn} left")
+        return False
+    print("sent", msg)
+    return True
 
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = Dekstop()
-    ex.show()
-    sys.exit(app.exec())
+def get_msg(conn):
+    """
+    Get message from the client
+    :param conn: socket (socket)
+    :return: message (string)/ False (bool)
+    """
+    global BUFSIZE
+    try:
+        msg_len = conn.recv(BUFSIZE)
+        if not msg_len or not msg_len.decode():
+            return False
+        msg = conn.recv(int(msg_len.decode())).decode()
+    except ConnectionResetError:
+        return False
+    except ConnectionAbortedError:
+        return False
+    return msg
+
+
+def login(command, conn, vars):
+    """
+    The controller of the server.
+    Gets message from the client and directs to the command function
+    :param command: func to execute (string)
+    :param conn: client socket (socket)
+    :param vars: ['username','password'] (list)
+    :return: noting
+    """
+    username = vars[0]
+    password = vars[1]
+    addr = conn.getpeername()
+    msg = str(sign_in(username, password, str(addr))) if command == "sign_in" \
+        else str(sign_up(username, password, str(addr)))
+    send_msg(conn, msg)
+    if msg == "Welcome to MyColab":
+        send_msg(conn, str(temp_socket.getsockname()))
+        temp_conn, temp_addr = temp_socket.accept()
+        conn_list[conn] = temp_conn
+
+
+def new_connection(conn, addr):
+    """
+    The controller of the server.
+    Gets message from the client and directs to the command function
+    :param conn: client socket (socket)
+    :param addr: client address (stringed tuple)
+    :return: noting
+    """
+    global SERVER, conn_list, temp_socket, projects
+    # SERVER - server socket, conn_list - connection list(dict)
+    print(f"{addr} connected to the server")
+    conn_list[conn] = False  # add connection to the list
+    while True:
+        msg = get_msg(conn)
+        if not msg:
+            break
+
+        print(f'{addr}: {msg}')
+
+    # signout(str(addr))
+    conn_list.pop(conn)  # remove connection from the list
+    conn.close()
+    print(f"{addr} left the server")
+
+
+# create_database()
+# signup("admin", '1234', None)
+print(f"Hello world! My name is {HOST} and I'm ready to get clients")
+while True:
+    try:
+        conn, addr = SERVER.accept()  # establish connection with client
+        # threading between clients and server
+        new_connection_thread = threading.Thread(target=new_connection, args=(conn, addr), daemon=True)
+        new_connection_thread.start()
+    except OSError:
+        exit()
