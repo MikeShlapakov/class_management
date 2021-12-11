@@ -15,7 +15,7 @@ import time
 import io
 import os
 import cv2
-
+from client_ui import client_ui as UI
 
 # ADDR = '192.168.31.186'
 ADDR = '192.168.31.101'
@@ -168,9 +168,26 @@ class Desktop(QMainWindow):
 
 def LoginWindow():
 
+    def signin(name, password):
+        print(name, password)
+
+    def signup():
+        print("signup")
+
+    ui = UI.Login_UI()
+    window = QMainWindow()
+    windows['login'] = window
+    ui.setupUi(window)
+    window.show()
+    ui.signin_btn.clicked.connect(lambda: signin(ui.username_entry.text(),ui.password_entry.text()))
+    ui.signup_btn.clicked.connect(lambda: signup(ui.username_entry.text(), ui.password_entry.text()))
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = Desktop()
-    ex.show()
+    windows = {}
+    LoginWindow()
+    # ex = Desktop()
+    # ex.show()
+    time.sleep(3)
     sys.exit(app.exec())

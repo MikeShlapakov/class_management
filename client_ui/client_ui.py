@@ -3,7 +3,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 
-class Ui_Login(object):
+class Login_UI(object):
     """
     The login window
     """
@@ -11,7 +11,7 @@ class Ui_Login(object):
         if not Window.objectName():
             Window.setObjectName(u"LoginWindow")
         Window.resize(400, 560)
-        Window.setMaximumSize(QSize(600, 800))
+        Window.setMaximumSize(QSize(700, 600))
         palette = QPalette()
         brush = QBrush(QColor(30, 30, 40, 255))
         palette.setBrush(QPalette.Active, QPalette.Window, brush)
@@ -22,7 +22,7 @@ class Ui_Login(object):
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout = QHBoxLayout(self.centralwidget)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalSpacer = QSpacerItem(300, 20, QSizePolicy.Preferred, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(300, 20, QSizePolicy.Maximum, QSizePolicy.Maximum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer)
 
@@ -32,7 +32,7 @@ class Ui_Login(object):
         self.frame.setFrameShadow(QFrame.Raised)
         self.verticalLayout = QVBoxLayout(self.frame)
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalSpacer = QSpacerItem(20, 100, QSizePolicy.Minimum, QSizePolicy.Maximum)
+        self.verticalSpacer = QSpacerItem(20, 100, QSizePolicy.Maximum, QSizePolicy.Maximum)
 
         self.verticalLayout.addItem(self.verticalSpacer)
 
@@ -71,7 +71,7 @@ class Ui_Login(object):
                                           "	color:#FFF;\n"
                                           "	padding-left: 20px;\n"
                                           "	padding-right: 20px;\n"
-                                          "	background-color: rgb(50, 50, 70);\n"
+                                          "	background-color: rgb(40, 40, 60);\n"
                                           "}\n"
                                           "QLineEdit:hover{\n"
                                           "	border: 2px solid rgb(80, 80, 100);\n"
@@ -96,13 +96,13 @@ class Ui_Login(object):
                                           "	color:#FFF;\n"
                                           "	padding-left: 20px;\n"
                                           "	padding-right: 20px;\n"
-                                          "	background-color: rgb(50, 50, 70);\n"
+                                          "	background-color: rgb(40, 40, 60);\n"
                                           "}\n"
                                           "QLineEdit:hover{\n"
                                           "	border: 2px solid rgb(80, 80, 100);\n"
                                           "}")
         self.password_entry.setAlignment(Qt.AlignCenter)
-
+        self.password_entry.setClearButtonEnabled(True)
         self.verticalLayout.addWidget(self.password_entry)
 
         self.verticalSpacer_5 = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Maximum)
@@ -140,40 +140,40 @@ class Ui_Login(object):
         self.signup_btn.setCursor(QCursor(Qt.PointingHandCursor))
         self.signup_btn.setStyleSheet(u"QPushButton{\n"
                                       "	border: 2px solid rgb(50, 50, 80);\n"
-                                      "	border-radius: 20px;\n"
-                                      "	color: rgb(25, 25, 30);\n"
+                                      "	border-radius: 17px;\n"
+                                      "	color: rgb(30, 30, 40);\n"
                                       "	padding-left: 20px;\n"
                                       "	padding-right: 20px;\n"
-                                      "	background-color: rgb(65, 65, 105);\n"
+                                      "	background-color: rgb(65, 65, 90);\n"
                                       "}\n"
                                       "\n"
                                       "QPushButton:hover{\n"
                                       "	border: 2px solid rgb(115, 115, 180);\n"
                                       "	\n"
-                                      "	color: rgb(40, 40, 45);\n"
+                                      "	color: rgb(180, 180, 180);\n"
                                       "	background-color: rgb(80, 80, 120);\n"
                                       "}")
         # -------------------------------------------------------------------------------
-        # login button ------------------------------------------------------------------
-        self.login_btn = QPushButton(self.frame_2)
-        self.login_btn.setObjectName(u"pushButton")
-        sizePolicy2.setHeightForWidth(self.login_btn.sizePolicy().hasHeightForWidth())
-        self.login_btn.setSizePolicy(sizePolicy2)
-        self.login_btn.setFont(font2)
-        self.login_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        self.login_btn.setStyleSheet(u"QPushButton{\n"
+        # signin button ------------------------------------------------------------------
+        self.signin_btn = QPushButton(self.frame_2)
+        self.signin_btn.setObjectName(u"pushButton")
+        sizePolicy2.setHeightForWidth(self.signin_btn.sizePolicy().hasHeightForWidth())
+        self.signin_btn.setSizePolicy(sizePolicy2)
+        self.signin_btn.setFont(font2)
+        self.signin_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.signin_btn.setStyleSheet(u"QPushButton{\n"
                                      "	border: 2px solid rgb(50, 50, 80);\n"
-                                     "	border-radius: 20px;\n"
-                                     "	color: rgb(25, 25, 30);\n"
+                                     "	border-radius: 17px;\n"
+                                     "	color: rgb(30, 30, 40);\n"
                                      "	padding-left: 20px;\n"
                                      "	padding-right: 20px;\n"
-                                     "	background-color: rgb(65, 65, 105);\n"
+                                     "	background-color: rgb(65, 65, 90);\n"
                                      "}\n"
                                      "\n"
                                      "QPushButton:hover{\n"
                                      "	border: 2px solid rgb(115, 115, 180);\n"
                                      "	\n"
-                                     "	color: rgb(40, 40, 45);\n"
+                                     "	color:rgb(180, 180, 180);\n"
                                      "	background-color: rgb(80, 80, 120);\n"
                                      "}")
 
@@ -182,7 +182,7 @@ class Ui_Login(object):
         self.horizontalLayout_2.addWidget(self.signup_btn)
         self.spacer = QSpacerItem(30, 20, QSizePolicy.Preferred, QSizePolicy.Minimum)
         self.horizontalLayout_2.addItem(self.spacer)
-        self.horizontalLayout_2.addWidget(self.login_btn)
+        self.horizontalLayout_2.addWidget(self.signin_btn)
         # -------------------------------------------------------------------------------
 
         self.verticalLayout.addWidget(self.frame_2)
@@ -211,7 +211,7 @@ class Ui_Login(object):
         self.label.setText(QCoreApplication.translate("LoginWindow", u"MY CLASS", None))
         self.username_entry.setPlaceholderText(QCoreApplication.translate("LoginWindow", u"ENTER USERNAME", None))
         self.password_entry.setPlaceholderText(QCoreApplication.translate("LoginWindow", u"ENTER PASSWORD", None))
-        self.login_btn.setText(QCoreApplication.translate("LoginWindow", u"SIGN IN", None))
+        self.signin_btn.setText(QCoreApplication.translate("LoginWindow", u"SIGN IN", None))
         self.signup_btn.setText(QCoreApplication.translate("LoginWindow", u"SIGN UP", None))
     # retranslateUi
 
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
     MainWindow = QMainWindow()
-    ui = Ui_Login()
+    ui = Login_UI()
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
