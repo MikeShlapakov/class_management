@@ -16,19 +16,22 @@ import io
 import os
 import cv2
 from client_ui import client_ui as UI
+from admin import admin
+
 
 # ADDR = '192.168.31.186'
 ADDR = '192.168.31.101'
 # ADDR = '172.16.1.123'
 
 
-class Desktop(QMainWindow):
+class Desktop():
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.screansharing = Thread(target=self.send_screenshot, daemon=True)
+        self.screansharing.start()
+        self.controling = Thread(target=self.MouseAndKeyboardController, daemon=True)
+        self.controling.start()
 
-    def StartThread(self):
-        self.start.start()
 
     def get_screenshot(self):
         """
@@ -69,8 +72,7 @@ class Desktop(QMainWindow):
         screenSize = [win.GetSystemMetrics(0),win.GetSystemMetrics(1)]
         sock.send(str(screenSize).encode())
         sock.recv(1)
-        self.controling = Thread(target=self.MouseAndKeyboardController, daemon=True)
-        self.controling.start()
+
         scale = 0.5
         while True:
             data = self.get_screenshot()
@@ -143,33 +145,12 @@ class Desktop(QMainWindow):
                 func(command)
 
 
-    def initUI(self):
-        self.pixmap = QPixmap()
-        self.label = QLabel(self)
-        self.label.resize(self.width(), self.height())
-        self.setGeometry(QRect(win.GetSystemMetrics(0)// 4,win.GetSystemMetrics(1)  // 4, 400, 100))
-        self.setFixedSize(self.width(), self.height())
-        self.setWindowTitle("[CLIENT] Remote Desktop")
-        self.start = Thread(target=self.send_screenshot, daemon=True)
-        self.btn = QPushButton(self)
-        self.btn.move(5, 55)
-        self.btn.resize(390, 30)
-        self.btn.setText("Start Demo")
-        self.btn.clicked.connect(self.StartThread)
-        self.ip = QLineEdit(self)
-        self.ip.move(5, 5)
-        self.ip.resize(390, 20)
-        self.ip.setPlaceholderText("IP")
-        self.port = QLineEdit(self)
-        self.port.move(5, 30)
-        self.port.resize(390, 20)
-        self.port.setPlaceholderText("PORT")
-
-
 def LoginWindow():
 
     def signin(name, password):
-        print(name, password)
+        if name == 'asd':
+
+            print(name, password)
 
     def signup():
         print("signup")

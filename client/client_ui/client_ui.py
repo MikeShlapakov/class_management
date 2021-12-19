@@ -216,11 +216,119 @@ class Login_UI(object):
     # retranslateUi
 
 
+class MainWindow_UI(object):
+    def setupUi(self, Window):
+        if Window.objectName():
+            Window.setObjectName(u"Window")
+        Window.resize(1000, 700)
+        palette = QPalette()
+        brush = QBrush(QColor(30, 30, 40, 255))
+        palette.setBrush(QPalette.Active, QPalette.Window, brush)
+        palette.setBrush(QPalette.Inactive, QPalette.Window, brush)
+        palette.setBrush(QPalette.Disabled, QPalette.Window, brush)
+        Window.setPalette(palette)
+        self.centralwidget = QWidget(Window)
+        self.centralwidget.setObjectName(u"centralwidget")
+        self.gridLayout = QGridLayout(self.centralwidget)
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Maximum)
+
+        self.gridLayout.addItem(self.verticalSpacer, 0, 2, 1, 1)
+
+        self.verticalSpacer_2 = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Maximum)
+
+        self.gridLayout.addItem(self.verticalSpacer_2, 3, 2, 1, 1)
+
+        self.horizontalSpacer_2 = QSpacerItem(1, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
+
+        self.gridLayout.addItem(self.horizontalSpacer_2, 2, 3, 1, 1)
+
+        self.widget = QWidget(self.centralwidget)
+        self.widget.setObjectName(u"widget")
+        self.widget.setMinimumSize(QSize(960, 540))
+        self.gridLayout_2 = QGridLayout(self.widget)
+        self.gridLayout_2.setObjectName(u"gridLayout_2")
+        self.label = QLabel(self.widget)
+        self.label.setObjectName(u"label")
+        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
+        self.label.setSizePolicy(sizePolicy)
+        self.label.setMinimumSize(QSize(240, 135))
+        self.label.setMaximumSize(QSize(480, 270))
+        self.label.setStyleSheet(u"background-color: rgb(158, 158, 158);")
+
+        self.gridLayout_2.addWidget(self.label, 0, 0, 1, 1)
+
+        self.label_2 = QLabel(self.widget)
+        self.label_2.setObjectName(u"label_2")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
+        self.label_2.setSizePolicy(sizePolicy1)
+        self.label_2.setMinimumSize(QSize(240, 135))
+        self.label_2.setMaximumSize(QSize(480, 270))
+        self.label_2.setStyleSheet(u"background-color: rgb(158, 158, 158);")
+
+        self.gridLayout_2.addWidget(self.label_2, 0, 1, 1, 1)
+
+        self.label_4 = QLabel(self.widget)
+        self.label_4.setObjectName(u"label_4")
+        sizePolicy1.setHeightForWidth(self.label_4.sizePolicy().hasHeightForWidth())
+        self.label_4.setSizePolicy(sizePolicy1)
+        self.label_4.setMinimumSize(QSize(240, 135))
+        self.label_4.setMaximumSize(QSize(480, 270))
+        self.label_4.setStyleSheet(u"background-color: rgb(158, 158, 158);")
+
+        self.gridLayout_2.addWidget(self.label_4, 1, 0, 1, 1)
+
+        self.label_3 = QLabel(self.widget)
+        self.label_3.setObjectName(u"label_3")
+        sizePolicy1.setHeightForWidth(self.label_3.sizePolicy().hasHeightForWidth())
+        self.label_3.setSizePolicy(sizePolicy1)
+        self.label_3.setMinimumSize(QSize(240, 135))
+        self.label_3.setMaximumSize(QSize(480, 270))
+        self.label_3.setStyleSheet(u"background-color: rgb(158, 158, 158);")
+
+        self.gridLayout_2.addWidget(self.label_3, 1, 1, 1, 1)
+
+
+        self.gridLayout.addWidget(self.widget, 2, 2, 1, 1)
+
+        self.horizontalSpacer = QSpacerItem(75, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
+
+        self.gridLayout.addItem(self.horizontalSpacer, 2, 1, 1, 1)
+
+        Window.setCentralWidget(self.centralwidget)
+        self.menubar = QMenuBar(Window)
+        self.menubar.setObjectName(u"menubar")
+        self.menubar.setGeometry(QRect(0, 0, 990, 21))
+        Window.setMenuBar(self.menubar)
+        self.statusbar = QStatusBar(Window)
+        self.statusbar.setObjectName(u"statusbar")
+        Window.setStatusBar(self.statusbar)
+
+        self.retranslateUi(Window)
+
+        QMetaObject.connectSlotsByName(Window)
+    # setupUi
+
+    def retranslateUi(self, Window):
+        Window.setWindowTitle(QCoreApplication.translate("Window", u"Window", None))
+        self.label.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        self.label_2.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        self.label_4.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        self.label_3.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+    # retranslateUi
+
+
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
     MainWindow = QMainWindow()
-    ui = Login_UI()
+    ui = MainWindow_UI()
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())

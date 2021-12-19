@@ -13,18 +13,7 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QRect, Qt
-
-sock = socket.socket()
-# ADDR = '192.168.31.186'
-ADDR = '192.168.31.101'
-# ADDR = '172.16.1.123'
-# ADDR = '172.16.5.148'
-sock.bind((ADDR, 12121))
-sock.listen()
-app_windows = {}
-
-scale_x, scale_y = 2, 2
-
+from client_ui import client_ui as UI
 
 class Dekstop(QMainWindow):
     def __init__(self):
@@ -145,11 +134,21 @@ def new_connection(conn_socket, address):
 
 
 def listener():
+    ADMIN = socket.socket()
+    ADDR = '192.168.31.186'
+    # ADDR = '192.168.31.101'
+    # ADDR = '172.16.1.123'
+    # ADDR = '172.16.5.148'
+    ADMIN.bind((ADDR, 12121))
+    ADMIN.listen()
+    windows = {}
+
+    scale_x, scale_y = 2, 2
     while True:
         try:
-            conn, addr = SERVER.accept()  # establish connection with client
+            conn, addr = ADMIN.accept()  # establish connection with client
             # threading between clients and server
-            new_connection_thread = threading.Thread(target=new_connection, args=(conn, addr), daemon=True)
+            new_connection_thread = Thread(target=new_connection, args=(conn, addr), daemon=True)
             new_connection_thread.start()
         except OSError:
             sys.exit()
@@ -157,8 +156,8 @@ def listener():
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    listener_thread = threading.Thread(target=listener, daemon=True)
+    listener_thread = Thread(target=listener, daemon=True)
     listener_thread.start()
-    ex = Dekstop()
-    ex.show()
+    # ex = Dekstop()
+    # ex.show()
     sys.exit(app.exec())
