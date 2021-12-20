@@ -15,10 +15,18 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QRect, Qt
 from client_ui import client_ui as UI
 
-class Dekstop(QMainWindow):
+windows = []
+
+class MainWindow(UI.MainWindow_UI):
     def __init__(self):
         super().__init__()
-        self.initUI()
+        # ui = UI.MainWindow_UI()
+        # print(self)
+        # ui.setupUi(self)
+        # self.screenSharing = Thread(target=self.ScreenSharing, daemon=True)
+        # self.screenSharing.start()
+        # self.controlling = Thread(target=self.Controlling, daemon=True)
+        # self.controlling.start()
 
     def ScreenSharing(self):
         global scale_x, scale_y
@@ -118,10 +126,7 @@ class Dekstop(QMainWindow):
             self.label.resize(self.width(), self.height())
             self.setWindowTitle("[SERVER] Remote Desktop")
             # self.setGeometry(600, 200, 1920//scale_x, 1080//scale_y)
-            self.screenSharing = Thread(target=self.ScreenSharing, daemon=True)
-            self.screenSharing.start()
-            self.controlling = Thread(target=self.Controlling, daemon=True)
-            self.controlling.start()
+
         except ConnectionResetError:
             QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing connection!")
             conn.close()
@@ -139,11 +144,19 @@ def listener():
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
     # ADDR = '172.16.5.148'
-    ADMIN.bind((ADDR, 12121))
-    ADMIN.listen()
-    windows = {}
+    # ADMIN.bind((ADDR, 12121))
+    # ADMIN.listen()
+    global windows
+    window = QMainWindow()
+    windows.append(window)
+    # windows['mainwindow'] = window
+    print(windows)
+    main_window = MainWindow()
+    main_window.setupUi(window)
+    window.show()
 
     scale_x, scale_y = 2, 2
+    return
     while True:
         try:
             conn, addr = ADMIN.accept()  # establish connection with client

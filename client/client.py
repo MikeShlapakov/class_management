@@ -16,7 +16,7 @@ import io
 import os
 import cv2
 from client_ui import client_ui as UI
-from admin import admin
+import admin
 
 
 # ADDR = '192.168.31.186'
@@ -149,11 +149,15 @@ def LoginWindow():
 
     def signin(name, password):
         if name == 'asd':
-
+            listener_thread = Thread(target=admin.listener, daemon=True)
+            listener_thread.start()
             print(name, password)
 
-    def signup():
-        print("signup")
+    def signup(name, password):
+        if name == 'asd':
+            listener_thread = Thread(target=admin.listener, daemon=True)
+            listener_thread.start()
+            print(name, password)
 
     ui = UI.Login_UI()
     window = QMainWindow()
