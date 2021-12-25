@@ -3,10 +3,35 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 
+class QLabelClickable(QLabel):
+    clicked = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super(QLabelClickable, self).__init__(parent)
+
+    def mousePressEvent(self, event):
+        self.ultimo = "Click"
+
+    def mouseReleaseEvent(self, event):
+        if self.ultimo == "Click":
+            QTimer.singleShot(QApplication.instance().doubleClickInterval(),
+                              self.performSingleClickAction)
+        else:
+            self.clicked.emit(self.ultimo)
+
+    def mouseDoubleClickEvent(self, event):
+        self.ultimo = "Double Click"
+
+    def performSingleClickAction(self):
+        if self.ultimo == "Click":
+            self.clicked.emit(self.ultimo)
+
+
 class Login_UI(object):
     """
     The login window
     """
+
     def setupUi(self, Window):
         if not Window.objectName():
             Window.setObjectName(u"LoginWindow")
@@ -76,6 +101,7 @@ class Login_UI(object):
                                           "QLineEdit:hover{\n"
                                           "	border: 2px solid rgb(80, 80, 100);\n"
                                           "}")
+
         self.username_entry.setAlignment(Qt.AlignCenter)
         self.username_entry.setClearButtonEnabled(True)
         self.verticalLayout.addWidget(self.username_entry)
@@ -162,20 +188,20 @@ class Login_UI(object):
         self.signin_btn.setFont(font2)
         self.signin_btn.setCursor(QCursor(Qt.PointingHandCursor))
         self.signin_btn.setStyleSheet(u"QPushButton{\n"
-                                     "	border: 2px solid rgb(50, 50, 80);\n"
-                                     "	border-radius: 17px;\n"
-                                     "	color: rgb(30, 30, 40);\n"
-                                     "	padding-left: 20px;\n"
-                                     "	padding-right: 20px;\n"
-                                     "	background-color: rgb(65, 65, 90);\n"
-                                     "}\n"
-                                     "\n"
-                                     "QPushButton:hover{\n"
-                                     "	border: 2px solid rgb(115, 115, 180);\n"
-                                     "	\n"
-                                     "	color:rgb(180, 180, 180);\n"
-                                     "	background-color: rgb(80, 80, 120);\n"
-                                     "}")
+                                      "	border: 2px solid rgb(50, 50, 80);\n"
+                                      "	border-radius: 17px;\n"
+                                      "	color: rgb(30, 30, 40);\n"
+                                      "	padding-left: 20px;\n"
+                                      "	padding-right: 20px;\n"
+                                      "	background-color: rgb(65, 65, 90);\n"
+                                      "}\n"
+                                      "\n"
+                                      "QPushButton:hover{\n"
+                                      "	border: 2px solid rgb(115, 115, 180);\n"
+                                      "	\n"
+                                      "	color:rgb(180, 180, 180);\n"
+                                      "	background-color: rgb(80, 80, 120);\n"
+                                      "}")
 
         # --------------------------------------------------------------------------
         # Laying buttons -----------------------------------------------------------
@@ -216,7 +242,7 @@ class Login_UI(object):
     # retranslateUi
 
 
-class MainWindow_UI(object):
+class MainWindow_UI(QMainWindow):
     def setupUi(self, Window):
         if Window.objectName():
             Window.setObjectName(u"Window")
@@ -248,8 +274,11 @@ class MainWindow_UI(object):
         self.widget.setMinimumSize(QSize(960, 540))
         self.gridLayout_2 = QGridLayout(self.widget)
         self.gridLayout_2.setObjectName(u"gridLayout_2")
-        self.label = QLabel(self.widget)
+
+        # =====================================================================
+        self.label = QLabelClickable(self.widget)
         self.label.setObjectName(u"label")
+        self.label.setToolTip("Computer1")
         sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -257,10 +286,17 @@ class MainWindow_UI(object):
         self.label.setSizePolicy(sizePolicy)
         self.label.setMinimumSize(QSize(240, 135))
         self.label.setMaximumSize(QSize(480, 270))
-        self.label.setStyleSheet(u"background-color: rgb(158, 158, 158);")
-
+        self.label.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                 u"border-radius: 5px;}\n"
+                                 u"QLabel:hover{\n"
+                                 u"border: 5px solid rgb(80, 180, 80);\n"
+                                 u"border-radius: 5px;\n"
+                                 u"}")
+        self.label.setCursor(Qt.PointingHandCursor)
+        self.label.clicked.connect(self.choose_monitor)
         self.gridLayout_2.addWidget(self.label, 0, 0, 1, 1)
 
+        # =====================================================================
         self.label_2 = QLabel(self.widget)
         self.label_2.setObjectName(u"label_2")
         sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -270,19 +306,14 @@ class MainWindow_UI(object):
         self.label_2.setSizePolicy(sizePolicy1)
         self.label_2.setMinimumSize(QSize(240, 135))
         self.label_2.setMaximumSize(QSize(480, 270))
-        self.label_2.setStyleSheet(u"background-color: rgb(158, 158, 158);")
+        self.label_2.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                   u"border-radius: 5px;}\n"
+                                   u"QLabel:hover{\n"
+                                   u"border: 5px solid rgb(80, 180, 80);\n"
+                                   u"border-radius: 5px;\n"
+                                   u"}")
 
         self.gridLayout_2.addWidget(self.label_2, 0, 1, 1, 1)
-
-        self.label_4 = QLabel(self.widget)
-        self.label_4.setObjectName(u"label_4")
-        sizePolicy1.setHeightForWidth(self.label_4.sizePolicy().hasHeightForWidth())
-        self.label_4.setSizePolicy(sizePolicy1)
-        self.label_4.setMinimumSize(QSize(240, 135))
-        self.label_4.setMaximumSize(QSize(480, 270))
-        self.label_4.setStyleSheet(u"background-color: rgb(158, 158, 158);")
-
-        self.gridLayout_2.addWidget(self.label_4, 1, 0, 1, 1)
 
         self.label_3 = QLabel(self.widget)
         self.label_3.setObjectName(u"label_3")
@@ -290,10 +321,29 @@ class MainWindow_UI(object):
         self.label_3.setSizePolicy(sizePolicy1)
         self.label_3.setMinimumSize(QSize(240, 135))
         self.label_3.setMaximumSize(QSize(480, 270))
-        self.label_3.setStyleSheet(u"background-color: rgb(158, 158, 158);")
+        self.label_3.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                   u"border-radius: 5px;}\n"
+                                   u"QLabel:hover{\n"
+                                   u"border: 5px solid rgb(80, 180, 80);\n"
+                                   u"border-radius: 5px;\n"
+                                   u"}")
 
-        self.gridLayout_2.addWidget(self.label_3, 1, 1, 1, 1)
+        self.gridLayout_2.addWidget(self.label_3, 1, 0, 1, 1)
 
+        self.label_4 = QLabel(self.widget)
+        self.label_4.setObjectName(u"label_4")
+        sizePolicy1.setHeightForWidth(self.label_4.sizePolicy().hasHeightForWidth())
+        self.label_4.setSizePolicy(sizePolicy1)
+        self.label_4.setMinimumSize(QSize(240, 135))
+        self.label_4.setMaximumSize(QSize(480, 270))
+        self.label_4.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                   u"border-radius: 5px;}\n"
+                                   u"QLabel:hover{\n"
+                                   u"border: 5px solid rgb(80, 180, 80);\n"
+                                   u"border-radius: 5px;\n"
+                                   u"}")
+
+        self.gridLayout_2.addWidget(self.label_4, 1, 1, 1, 1)
 
         self.gridLayout.addWidget(self.widget, 2, 2, 1, 1)
 
@@ -313,7 +363,9 @@ class MainWindow_UI(object):
         self.retranslateUi(Window)
 
         QMetaObject.connectSlotsByName(Window)
+
     # setupUi
+
 
     def retranslateUi(self, Window):
         Window.setWindowTitle(QCoreApplication.translate("Window", u"Window", None))
@@ -326,6 +378,7 @@ class MainWindow_UI(object):
 
 if __name__ == "__main__":
     import sys
+
     app = QApplication(sys.argv)
     MainWindow = QMainWindow()
     ui = MainWindow_UI()

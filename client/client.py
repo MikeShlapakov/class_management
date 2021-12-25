@@ -155,7 +155,7 @@ def LoginWindow():
             print(name, password)
             window.close()
         else:
-            print("please log as admin")
+            Desktop()
 
     def signup(name, password):
         if name == 'asd':
