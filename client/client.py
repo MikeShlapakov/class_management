@@ -149,9 +149,13 @@ def LoginWindow():
 
     def signin(name, password):
         if name == 'asd':
-            listener_thread = Thread(target=admin.listener, daemon=True)
-            listener_thread.start()
+            # listener_thread = Thread(target=admin.listener, daemon=True)
+            # listener_thread.start()
+            admin.listener()
             print(name, password)
+            window.close()
+        else:
+            print("please log as admin")
 
     def signup(name, password):
         if name == 'asd':
@@ -174,5 +178,4 @@ if __name__ == '__main__':
     LoginWindow()
     # ex = Desktop()
     # ex.show()
-    time.sleep(3)
-    sys.exit(app.exec())
+    sys.exit(app.exec_())
