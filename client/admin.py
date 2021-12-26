@@ -30,6 +30,7 @@ def get_open_port():
     print(port)
     return port
 
+
 class MainWindow(UI.MainWindow_UI):
     def __init__(self, socket):
         super(MainWindow, self).__init__()
@@ -39,6 +40,7 @@ class MainWindow(UI.MainWindow_UI):
         self.row_limit = 2
         listener_thread = Thread(target=self.listener, daemon=True)
         listener_thread.start()
+
     def listener(self):
         while True:
             try:
@@ -65,19 +67,13 @@ class MainWindow(UI.MainWindow_UI):
                                                         u"}")
         connections[f"comp{comp_num}"][1].clicked.connect(self.choose_monitor)
 
+        def get_position(num):
+            for i in range(self.row_limit):
+                for j in range(self.column_limit):
+                    if i * self.column_limit + j == num:
+                        return i, j
 
-        column = 0
-        row = 0
-        i = 0
-        while i < comp_num:
-            if column == (self.column_limit-1):
-                column = 0
-                row += 1
-            else:
-                column += 1
-            i += 1
-        print(connections)
-        print(row, column)
+        row, column = get_position(comp_num)
         self.gridLayout_2.addWidget(connections[f"comp{comp_num}"][1], row, column, 1, 1)
 
         self.screen_sharing_sock = socket.socket()
@@ -128,17 +124,15 @@ class MainWindow(UI.MainWindow_UI):
         """
         checks the action. if double-clicked on a screen: start to control it
         """
-        print(1)
-        if action == "Double Click":
-            if self.comp1.pixmap():
-                self.Controlling = Thread(target=self.controlling,args=(connections[f"comp{4}"][1],), daemon=True)
+        print(action)
+        if action[1] == "Double Click":
+            if eval(f'self.{action[0]}').pixmap():
+                self.Controlling = Thread(target=self.controlling,args=(connections[action[0]][1],), daemon=True)
                 self.Controlling.start()
             else:
                 print("you cant connect to this computer")
 
     def controlling(self):
-        scale_x, scale_y = 2, 2
-
         def on_move(x, y):
             win_x, win_y = self.frameGeometry().x() + (
                     self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
@@ -147,7 +141,7 @@ class MainWindow(UI.MainWindow_UI):
             if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
                 x = x - win_x
                 y = y - win_y
-                command = str(['MOVE', x * scale_x, y * scale_y])
+                command = str(['MOVE', x, y])
                 self.new_conn.send(command.encode())
                 self.new_conn.recv(256)
             # print('Pointer moved to {0}'.format((x, y)))
@@ -191,29 +185,6 @@ class MainWindow(UI.MainWindow_UI):
 
         listener = keyboard.Listener(on_press=on_press)
         listener.start()
-
-    def initUI(self):
-        global scale_x, scale_y
-        try:
-            print("[SERVER]: self.CONNECTED: {0}!".format(self.conn.getpeername()[0]))
-            screenSize = self.conn.recv(64)
-            print(screenSize)
-            screenSize = screenSize.decode()
-            self.setGeometry(win.GetSystemMetrics(0) // 4, win.GetSystemMetrics(0) // 4, eval(screenSize)[0] // scale_x,
-                             eval(screenSize)[1] // scale_y)
-            self.setFixedSize(self.width(), self.height())
-            print(1)
-
-            self.pixmap = QPixmap()
-            self.label = QLabel(self)
-            self.label.resize(self.width(), self.height())
-            self.setWindowTitle("[SERVER] Remote Desktop")
-            # self.setGeometry(600, 200, 1920//scale_x, 1080//scale_y)
-
-        except self.ConnectionResetError:
-            QMessageBox.about(self, "ERROR",
-                              "[SERVER]: The remote host forcibly terminated the existing self.connection!")
-            self.conn.close()
 
 
 def main():

@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import *
 
 
 class ComputerScreen(QLabel):
-    clicked = pyqtSignal(str)
+    clicked = pyqtSignal(list)
 
     def __init__(self, parent=None):
         super(ComputerScreen, self).__init__(parent)
@@ -20,21 +20,21 @@ class ComputerScreen(QLabel):
 
 
     def mousePressEvent(self, event):
-        self.ultimo = "Click"
+        self.params = [self.objectName(),"Click"]
 
     def mouseReleaseEvent(self, event):
-        if self.ultimo == "Click":
+        if self.params == [self.objectName(),"Click"]:
             QTimer.singleShot(QApplication.instance().doubleClickInterval(),
                               self.performSingleClickAction)
         else:
-            self.clicked.emit(self.ultimo)
+            self.clicked.emit(self.params)
 
     def mouseDoubleClickEvent(self, event):
-        self.ultimo = "Double Click"
+        self.params = [self.objectName(),"Double Click"]
 
     def performSingleClickAction(self):
-        if self.ultimo == "Click":
-            self.clicked.emit(self.ultimo)
+        if self.params == [self.objectName(),"Click"]:
+            self.clicked.emit(self.params)
 
 
 class Login_UI(object):
@@ -326,8 +326,9 @@ if __name__ == "__main__":
     import sys
 
     app = QApplication(sys.argv)
-    MainWindow = QMainWindow()
-    ui = MainWindow_UI()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
+    # MainWindow = QMainWindow()
+    # ui = MainWindow_UI()
+    # ui.setupUi(MainWindow)
+    # MainWindow.show()
+    mouseoverEvent()
     sys.exit(app.exec_())
