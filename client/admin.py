@@ -16,76 +16,129 @@ from PyQt5.QtCore import QRect, Qt
 from client_ui import client_ui as UI
 
 windows = {}
+connections = {}
+
+
+def get_open_port():
+    """
+    Use socket's built in ability to find an open port.
+    """
+    sock = socket.socket()
+    sock.bind(('', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    print(port)
+    return port
 
 class MainWindow(UI.MainWindow_UI):
     def __init__(self, socket):
         super(MainWindow, self).__init__()
         self.sock = socket
 
+        self.column_limit = 2
+        self.row_limit = 2
         listener_thread = Thread(target=self.listener, daemon=True)
         listener_thread.start()
-
     def listener(self):
         while True:
             try:
                 self.conn, addr = self.sock.accept()  # establish connection with client
                 # threading between clients and server
-                new_connection_thread = Thread(target=self.new_connection, args=(self.conn, addr), daemon=True)
+                new_connection_thread = Thread(target=self.new_connection, daemon=True)
                 new_connection_thread.start()
             except OSError:
                 sys.exit()
 
-    def new_connection(self, connection, address):
-        print(f'{address} connected to the server')
-        self.ScreenSharing = Thread(target=self.screen_sharing, daemon=True)
+    def new_connection(self):
+        global connections
+        print(f'{self.conn.getpeername()[0]} connected to the server')
+        comp_num = len(connections)
+        connections[f"comp{comp_num}"] = [self.conn.getpeername()[0]]
+        connections[f"comp{comp_num}"].append(eval(f'self.comp{comp_num}'))
+        connections[f"comp{comp_num}"][1].setObjectName(f"comp{comp_num}")
+        connections[f"comp{comp_num}"][1].setToolTip(f"{self.conn.getpeername()[0]}'s computer")
+        connections[f"comp{comp_num}"][1].setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                                        u"border-radius: 5px;}\n"
+                                                        u"QLabel:hover{\n"
+                                                        u"border: 5px solid rgb(80, 180, 80);\n"
+                                                        u"border-radius: 5px;\n"
+                                                        u"}")
+        connections[f"comp{comp_num}"][1].clicked.connect(self.choose_monitor)
+
+
+        column = 0
+        row = 0
+        i = 0
+        while i < comp_num:
+            if column == (self.column_limit-1):
+                column = 0
+                row += 1
+            else:
+                column += 1
+            i += 1
+        print(connections)
+        print(row, column)
+        self.gridLayout_2.addWidget(connections[f"comp{comp_num}"][1], row, column, 1, 1)
+
+        self.screen_sharing_sock = socket.socket()
+        screen_sharing_port = get_open_port()
+        self.screen_sharing_sock.bind((self.conn.getsockname()[0], screen_sharing_port))
+        self.screen_sharing_sock.listen()
+        print((str(len(str(screen_sharing_port)))+' '*(64-len(str(len(str(screen_sharing_port)))))).encode())
+        self.conn.send((str(len(str(screen_sharing_port)))+' '*(64-len(str(len(str(screen_sharing_port)))))).encode())
+        self.conn.send(str(screen_sharing_port).encode())
+        self.screen_sharing_conn, self.addr = self.screen_sharing_sock.accept()
+        self.ScreenSharing = Thread(target=self.screen_sharing, args=(connections[f"comp{comp_num}"][1],), daemon=True)
         self.ScreenSharing.start()
 
-        self.new_sock = socket.socket()
-        self.new_sock.bind((self.conn.getsockname()[0], 13131))
-        self.new_sock.listen()
-        self.new_conn, self.addr = self.new_sock.accept()
+        self.control_sock = socket.socket()
+        control_port = get_open_port()
+        self.control_sock.bind((self.conn.getsockname()[0], control_port))
+        self.control_sock.listen()
+        self.conn.send((str(len(str(control_port)))+' '*(64-len(str(len(str(control_port)))))).encode())
+        self.conn.send(str(control_port).encode())
+        self.control_conn, self.addr = self.control_sock.accept()
         return
 
-    def screen_sharing(self):
+    def screen_sharing(self, comp_screen):
         self.pixmap = QPixmap()
-        screenSize = self.conn.recv(64)
-        print(screenSize)
-        self.conn.send(b'1')
+        self.screenSize = self.screen_sharing_conn.recv(64)
+        print(self.screenSize)
+        self.screen_sharing_conn.send(b'1')
         try:
-            # self.setGeometry(400, 200, eval(screenSize)[0] // scale_x, eval(screenSize)[1] // scale_y)
             while True:
-                img_len = self.conn.recv(64)
-                img = self.conn.recv(eval(img_len.decode()))
+                img_len = self.screen_sharing_conn.recv(64)
+                img = self.screen_sharing_conn.recv(eval(img_len.decode()))
                 while len(img) != eval(img_len.decode()):
-                    img += self.conn.recv(eval(img_len.decode()) - len(img))
-                # image = QImage(eval(img).data, eval(img).shape[1],eval(img).shape[0],eval(img).shape[1]*3,QImage.Format_RGB888)
-                # self.conn.send(b'1')
+                    img += self.screen_sharing_conn.recv(eval(img_len.decode()) - len(img))
                 self.pixmap.loadFromData(img)
-                self.pixmap.scaled(self.label.width(), self.label.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.label.setScaledContents(True)
-                # self.label.resize(self.width(), self.height())
-                self.label.setPixmap(QPixmap(self.pixmap))
-                self.label.setAlignment(Qt.AlignCenter)
-
+                self.pixmap.scaled(comp_screen.width(), comp_screen.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                comp_screen.setScaledContents(True)
+                comp_screen.setPixmap(QPixmap(self.pixmap))
+                comp_screen.setAlignment(Qt.AlignCenter)
 
         except ConnectionResetError:
-            QMessageBox.about(QWidget(), "ERROR", "[SERVER]: The remote host forcibly terminated the existing self.connection!")
-            self.conn.close()
+            QMessageBox.about(QWidget(), "ERROR",
+                              "[SERVER]: The remote host forcibly terminated the existing self.connection!")
+            self.screen_sharing_conn.close()
         except Exception as e:
             print(e)
 
     def choose_monitor(self, action):
+        """
+        checks the action. if double-clicked on a screen: start to control it
+        """
         print(1)
         if action == "Double Click":
-            if self.label.pixmap():
-                self.Controlling = Thread(target=self.controlling, daemon=True)
+            if self.comp1.pixmap():
+                self.Controlling = Thread(target=self.controlling,args=(connections[f"comp{4}"][1],), daemon=True)
                 self.Controlling.start()
             else:
                 print("you cant connect to this computer")
 
     def controlling(self):
         scale_x, scale_y = 2, 2
-        
+
         def on_move(x, y):
             win_x, win_y = self.frameGeometry().x() + (
                     self.frameGeometry().width() - self.label.width()), self.frameGeometry().y() + (
@@ -158,13 +211,14 @@ class MainWindow(UI.MainWindow_UI):
             # self.setGeometry(600, 200, 1920//scale_x, 1080//scale_y)
 
         except self.ConnectionResetError:
-            QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing self.connection!")
+            QMessageBox.about(self, "ERROR",
+                              "[SERVER]: The remote host forcibly terminated the existing self.connection!")
             self.conn.close()
 
 
 def main():
     ADMIN = socket.socket()
-    ADDR = '192.168.31.186'
+    ADDR = '192.168.31.149'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
     # ADDR = '172.16.5.148'
@@ -177,7 +231,6 @@ def main():
     main_window = MainWindow(ADMIN)
     main_window.setupUi(window)
     window.show()
-
 
 
 if __name__ == '__main__':

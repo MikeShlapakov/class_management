@@ -3,11 +3,21 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 
-class QLabelClickable(QLabel):
+class ComputerScreen(QLabel):
     clicked = pyqtSignal(str)
 
     def __init__(self, parent=None):
-        super(QLabelClickable, self).__init__(parent)
+        super(ComputerScreen, self).__init__(parent)
+
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setMinimumSize(QSize(240, 135))
+        self.setMaximumSize(QSize(480, 270))
+        self.setCursor(Qt.PointingHandCursor)
+
 
     def mousePressEvent(self, event):
         self.ultimo = "Click"
@@ -276,74 +286,11 @@ class MainWindow_UI(QMainWindow):
         self.gridLayout_2.setObjectName(u"gridLayout_2")
 
         # =====================================================================
-        self.label = QLabelClickable(self.widget)
-        self.label.setObjectName(u"label")
-        self.label.setToolTip("Computer1")
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
-        self.label.setSizePolicy(sizePolicy)
-        self.label.setMinimumSize(QSize(240, 135))
-        self.label.setMaximumSize(QSize(480, 270))
-        self.label.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-                                 u"border-radius: 5px;}\n"
-                                 u"QLabel:hover{\n"
-                                 u"border: 5px solid rgb(80, 180, 80);\n"
-                                 u"border-radius: 5px;\n"
-                                 u"}")
-        self.label.setCursor(Qt.PointingHandCursor)
-        self.label.clicked.connect(self.choose_monitor)
-        self.gridLayout_2.addWidget(self.label, 0, 0, 1, 1)
-
+        self.comp0 = ComputerScreen(self.widget)
+        self.comp1 = ComputerScreen(self.widget)
+        self.comp2 = ComputerScreen(self.widget)
+        self.comp3 = ComputerScreen(self.widget)
         # =====================================================================
-        self.label_2 = QLabel(self.widget)
-        self.label_2.setObjectName(u"label_2")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
-        self.label_2.setSizePolicy(sizePolicy1)
-        self.label_2.setMinimumSize(QSize(240, 135))
-        self.label_2.setMaximumSize(QSize(480, 270))
-        self.label_2.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-                                   u"border-radius: 5px;}\n"
-                                   u"QLabel:hover{\n"
-                                   u"border: 5px solid rgb(80, 180, 80);\n"
-                                   u"border-radius: 5px;\n"
-                                   u"}")
-
-        self.gridLayout_2.addWidget(self.label_2, 0, 1, 1, 1)
-
-        self.label_3 = QLabel(self.widget)
-        self.label_3.setObjectName(u"label_3")
-        sizePolicy1.setHeightForWidth(self.label_3.sizePolicy().hasHeightForWidth())
-        self.label_3.setSizePolicy(sizePolicy1)
-        self.label_3.setMinimumSize(QSize(240, 135))
-        self.label_3.setMaximumSize(QSize(480, 270))
-        self.label_3.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-                                   u"border-radius: 5px;}\n"
-                                   u"QLabel:hover{\n"
-                                   u"border: 5px solid rgb(80, 180, 80);\n"
-                                   u"border-radius: 5px;\n"
-                                   u"}")
-
-        self.gridLayout_2.addWidget(self.label_3, 1, 0, 1, 1)
-
-        self.label_4 = QLabel(self.widget)
-        self.label_4.setObjectName(u"label_4")
-        sizePolicy1.setHeightForWidth(self.label_4.sizePolicy().hasHeightForWidth())
-        self.label_4.setSizePolicy(sizePolicy1)
-        self.label_4.setMinimumSize(QSize(240, 135))
-        self.label_4.setMaximumSize(QSize(480, 270))
-        self.label_4.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-                                   u"border-radius: 5px;}\n"
-                                   u"QLabel:hover{\n"
-                                   u"border: 5px solid rgb(80, 180, 80);\n"
-                                   u"border-radius: 5px;\n"
-                                   u"}")
-
-        self.gridLayout_2.addWidget(self.label_4, 1, 1, 1, 1)
 
         self.gridLayout.addWidget(self.widget, 2, 2, 1, 1)
 
@@ -366,13 +313,12 @@ class MainWindow_UI(QMainWindow):
 
     # setupUi
 
-
     def retranslateUi(self, Window):
-        Window.setWindowTitle(QCoreApplication.translate("Window", u"Window", None))
-        self.label.setText(QCoreApplication.translate("Window", u"TextLabel", None))
-        self.label_2.setText(QCoreApplication.translate("Window", u"TextLabel", None))
-        self.label_4.setText(QCoreApplication.translate("Window", u"TextLabel", None))
-        self.label_3.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        Window.setWindowTitle(QCoreApplication.translate("Window", u"My Class", None))
+        # self.comp1.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        # self.label_2.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        # self.label_4.setText(QCoreApplication.translate("Window", u"TextLabel", None))
+        # self.label_3.setText(QCoreApplication.translate("Window", u"TextLabel", None))
     # retranslateUi
 
 
