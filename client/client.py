@@ -19,16 +19,30 @@ from client_ui import client_ui as UI
 import admin
 
 
-# ADDR = '192.168.31.186'
-ADDR = '192.168.31.101'
+ADDR = '192.168.31.149'
+# ADDR = '192.168.31.101'
 # ADDR = '172.16.1.123'
 
 
 class Desktop():
     def __init__(self):
-        super().__init__()
+        sock = socket()
+        sock.connect((ADDR, 12121))
+        msg_len = sock.recv(64)
+        port = sock.recv(eval(msg_len.decode()))
+        print(port)
+        self.screen_sharing_sock = socket()
+        self.screen_sharing_sock.connect((ADDR, eval(port.decode())))
+
         self.screansharing = Thread(target=self.send_screenshot, daemon=True)
         self.screansharing.start()
+
+        msg_len = sock.recv(64)
+        port = sock.recv(eval(msg_len.decode()))
+        print(port)
+        self.control_sock = socket()
+        self.control_sock.connect((ADDR, eval(port.decode())))
+
         self.controling = Thread(target=self.MouseAndKeyboardController, daemon=True)
         self.controling.start()
 
@@ -64,15 +78,9 @@ class Desktop():
         return img
 
     def send_screenshot(self):
-        # if len(self.ip.text()) != 0 and len(self.port.text()):
-        sock = socket()
-        #     print(self.ip.text(), int(self.port.text()))
-        #     sock.connect((self.ip.text(), int(self.port.text()))) # 192.168.31.229 9091
-        sock.connect((ADDR, 12121))
         screenSize = [win.GetSystemMetrics(0),win.GetSystemMetrics(1)]
-        sock.send(str(screenSize).encode())
-        sock.recv(1)
-
+        self.screen_sharing_sock.send(str(screenSize).encode())
+        self.screen_sharing_sock.recv(1)
         scale = 0.5
         while True:
             data = self.get_screenshot()
@@ -83,26 +91,24 @@ class Desktop():
             img_bytes = io.BytesIO()
             img.save(img_bytes, format='JPEG', optimize=True, quality=80)  # optimize the image and convert it to bytes
             # send image
-            sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
-            sock.send(img_bytes.getvalue())
+            self.screen_sharing_sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
+            self.screen_sharing_sock.send(img_bytes.getvalue())
             # sock.recv(1)
         sock.close()
 
 
     def MouseAndKeyboardController(self):
-        new_conn = socket()
-        new_conn.connect((ADDR, 13131))
         ms = mouse.Controller()
         kb = keyboard.Controller()
 
         def on_move(x,y):
             ms.position = (x,y)
-            new_conn.send(("got it").encode())
+            self.control_sock.send(("got it").encode())
 
         def on_click(button):
             ms.press(Button.left if button.find('left') else Button.right)
-            new_conn.send(("got it").encode())
-            msg = new_conn.recv(256).decode()
+            self.control_sock.send(("got it").encode())
+            msg = self.control_sock.recv(256).decode()
             try:
                 command = eval(msg)
             except Exception as e:
@@ -111,22 +117,22 @@ class Desktop():
                 while command[0] != "RELEASE":
                     func = commands[command[0]]
                     func(command)
-                    msg = new_conn.recv(256).decode()
+                    msg = self.control_sock.recv(256).decode()
                     try:
                         command = eval(msg)
                     except Exception as e:
                         print(e)
-                new_conn.send(("got it").encode())
+                self.control_sock.send(("got it").encode())
             ms.release(Button.left if button.find('left') else Button.right)
 
         def on_scroll(scroll):
             ms.scroll(0, scroll)
-            new_conn.send(("got it").encode())
+            self.control_sock.send(("got it").encode())
 
         def on_key(key):
             kb.press(eval(key))
             kb.release(eval(key))
-            new_conn.send(("got it").encode())
+            self.control_sock.send(("got it").encode())
 
         commands = {"MOVE": lambda arr: on_move(arr[1], arr[2]),
                 "CLICK": lambda arr: on_click(arr[1]),
@@ -134,7 +140,7 @@ class Desktop():
                 "KEY": lambda arr: on_key(arr[1])}
 
         while True:
-            msg = new_conn.recv(256).decode()
+            msg = self.control_sock.recv(256).decode()
             try:
                 command = eval(msg)
             except Exception as e:
@@ -149,12 +155,10 @@ def LoginWindow():
 
     def signin(name, password):
         if name == 'asd':
-            # listener_thread = Thread(target=admin.listener, daemon=True)
-            # listener_thread.start()
-            admin.listener()
+            admin.main()
             print(name, password)
-            window.close()
         else:
+            # window.close()
             Desktop()
 
     def signup(name, password):
@@ -176,6 +180,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     windows = {}
     LoginWindow()
-    # ex = Desktop()
-    # ex.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
