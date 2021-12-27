@@ -19,7 +19,7 @@ from client_ui import client_ui as UI
 import admin
 
 
-ADDR = '192.168.31.149'
+ADDR = '192.168.31.151'
 # ADDR = '192.168.31.101'
 # ADDR = '172.16.1.123'
 
@@ -43,7 +43,7 @@ class Desktop():
         self.control_sock = socket()
         self.control_sock.connect((ADDR, eval(port.decode())))
 
-        self.controling = Thread(target=self.MouseAndKeyboardController, daemon=True)
+        self.controling = Thread(target=self.controller, daemon=True)
         self.controling.start()
 
 
@@ -79,7 +79,7 @@ class Desktop():
 
     def send_screenshot(self):
         screenSize = [win.GetSystemMetrics(0),win.GetSystemMetrics(1)]
-        self.screen_sharing_sock.send(str(screenSize).encode())
+        self.screen_sharing_sock.send(str(screenSize).encode('utf-8').strip())
         self.screen_sharing_sock.recv(1)
         scale = 0.5
         while True:
@@ -94,10 +94,9 @@ class Desktop():
             self.screen_sharing_sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
             self.screen_sharing_sock.send(img_bytes.getvalue())
             # sock.recv(1)
-        sock.close()
 
 
-    def MouseAndKeyboardController(self):
+    def controller(self):
         ms = mouse.Controller()
         kb = keyboard.Controller()
 
@@ -151,7 +150,7 @@ class Desktop():
                 func(command)
 
 
-def LoginWindow():
+def LoginWindow():  # TODO splash screen
 
     def signin(name, password):
         if name == 'asd':
@@ -163,8 +162,7 @@ def LoginWindow():
 
     def signup(name, password):
         if name == 'asd':
-            listener_thread = Thread(target=admin.listener, daemon=True)
-            listener_thread.start()
+            admin.main()
             print(name, password)
 
     ui = UI.Login_UI()

@@ -4,15 +4,15 @@ from PyQt5.QtWidgets import *
 
 
 class ComputerScreen(QLabel):
-    clicked = pyqtSignal(list)
+    clicked = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super(ComputerScreen, self).__init__(parent)
 
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
         self.setMinimumSize(QSize(240, 135))
         self.setMaximumSize(QSize(480, 270))
@@ -20,20 +20,20 @@ class ComputerScreen(QLabel):
 
 
     def mousePressEvent(self, event):
-        self.params = [self.objectName(),"Click"]
+        self.params = {"name":self.objectName(),"action":"Click"}
 
     def mouseReleaseEvent(self, event):
-        if self.params == [self.objectName(),"Click"]:
+        if self.params == {"name":self.objectName(),"action":"Click"}:
             QTimer.singleShot(QApplication.instance().doubleClickInterval(),
                               self.performSingleClickAction)
         else:
             self.clicked.emit(self.params)
 
     def mouseDoubleClickEvent(self, event):
-        self.params = [self.objectName(),"Double Click"]
+        self.params = {"name":self.objectName(),"action":"Double Click"}
 
     def performSingleClickAction(self):
-        if self.params == [self.objectName(),"Click"]:
+        if self.params == {"name":self.objectName(),"action":"Click"}:
             self.clicked.emit(self.params)
 
 
@@ -253,35 +253,38 @@ class Login_UI(object):
 
 
 class MainWindow_UI(QMainWindow):
-    def setupUi(self, Window):
-        if Window.objectName():
-            Window.setObjectName(u"Window")
-        Window.resize(1000, 700)
+    def __init__(self):
+        super().__init__()
+        self.setObjectName(u"Window")
+        self.resize(1000, 700)
         palette = QPalette()
         brush = QBrush(QColor(30, 30, 40, 255))
         palette.setBrush(QPalette.Active, QPalette.Window, brush)
         palette.setBrush(QPalette.Inactive, QPalette.Window, brush)
         palette.setBrush(QPalette.Disabled, QPalette.Window, brush)
-        Window.setPalette(palette)
-        self.centralwidget = QWidget(Window)
+        self.setPalette(palette)
+        self.centralwidget = QWidget(self)
         self.centralwidget.setObjectName(u"centralwidget")
         self.gridLayout = QGridLayout(self.centralwidget)
         self.gridLayout.setObjectName(u"gridLayout")
-        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Maximum)
 
+        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.gridLayout.addItem(self.verticalSpacer, 0, 2, 1, 1)
 
-        self.verticalSpacer_2 = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Maximum)
-
+        self.verticalSpacer_2 = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.gridLayout.addItem(self.verticalSpacer_2, 3, 2, 1, 1)
 
-        self.horizontalSpacer_2 = QSpacerItem(1, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(50, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.gridLayout.addItem(self.horizontalSpacer, 2, 1, 1, 1)
 
+        self.horizontalSpacer_2 = QSpacerItem(50, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.gridLayout.addItem(self.horizontalSpacer_2, 2, 3, 1, 1)
 
         self.widget = QWidget(self.centralwidget)
         self.widget.setObjectName(u"widget")
         self.widget.setMinimumSize(QSize(960, 540))
+        self.widget.setStyleSheet("background-color: rgb(65, 65, 90);")
+        self.widget.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.gridLayout_2 = QGridLayout(self.widget)
         self.gridLayout_2.setObjectName(u"gridLayout_2")
 
@@ -290,36 +293,70 @@ class MainWindow_UI(QMainWindow):
         self.comp1 = ComputerScreen(self.widget)
         self.comp2 = ComputerScreen(self.widget)
         self.comp3 = ComputerScreen(self.widget)
+        self.screen = QLabel(self.widget)
         # =====================================================================
 
         self.gridLayout.addWidget(self.widget, 2, 2, 1, 1)
 
-        self.horizontalSpacer = QSpacerItem(75, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
-
-        self.gridLayout.addItem(self.horizontalSpacer, 2, 1, 1, 1)
-
-        Window.setCentralWidget(self.centralwidget)
-        self.menubar = QMenuBar(Window)
+        self.setCentralWidget(self.centralwidget)
+        self.menubar = QMenuBar(self)
         self.menubar.setObjectName(u"menubar")
         self.menubar.setGeometry(QRect(0, 0, 990, 21))
-        Window.setMenuBar(self.menubar)
-        self.statusbar = QStatusBar(Window)
+        self.setMenuBar(self.menubar)
+        self.statusbar = QStatusBar(self)
         self.statusbar.setObjectName(u"statusbar")
-        Window.setStatusBar(self.statusbar)
+        self.setStatusBar(self.statusbar)
 
-        self.retranslateUi(Window)
+        self.retranslateUi(self)
 
-        QMetaObject.connectSlotsByName(Window)
+        QMetaObject.connectSlotsByName(self)
 
     # setupUi
 
     def retranslateUi(self, Window):
         Window.setWindowTitle(QCoreApplication.translate("Window", u"My Class", None))
-        # self.comp1.setText(QCoreApplication.translate("Window", u"TextLabel", None))
-        # self.label_2.setText(QCoreApplication.translate("Window", u"TextLabel", None))
-        # self.label_4.setText(QCoreApplication.translate("Window", u"TextLabel", None))
-        # self.label_3.setText(QCoreApplication.translate("Window", u"TextLabel", None))
     # retranslateUi
+
+
+class ComputerScreen_UI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        # flags = Qt.WindowFlags(Qt.FramelessWindowHint)  # Qt.WindowStaysOnTopHint |
+        # self.setWindowFlags(flags)
+        # setting palette
+        self.resize(800, 600)
+        palette = QPalette()
+        brush = QBrush(QColor(25, 25, 35, 255))
+        palette.setBrush(QPalette.Active, QPalette.Window, brush)
+        palette.setBrush(QPalette.Inactive, QPalette.Window, brush)
+        palette.setBrush(QPalette.Disabled, QPalette.Window, brush)
+        self.setPalette(palette)
+        # setting geometry
+        self.setGeometry(100, 100, 600, 400)
+
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setObjectName(u"centralwidget")
+
+
+        self.Hlayout = QHBoxLayout(self.centralwidget)
+        self.Hlayout.setObjectName(u"Hlayout")
+        # self.setLayout(self.Hlayout)
+        # calling method
+        self.UiComponents()
+        self.setCentralWidget(self.centralwidget)
+    # method for widgets
+    def UiComponents(self):
+        # creating label
+        self.screen = QLabel("screen", self.centralwidget)
+        # setting geometry to label
+        # self.screen.setGeometry(100, 100, 120, 40)
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.screen.setSizePolicy(sizePolicy)
+        # adding border to label
+        self.screen.setStyleSheet("border : 2px solid black")
+        # opening window in maximized size
+        self.Hlayout.addWidget(self.screen)
+        self.showMaximized()
 
 
 if __name__ == "__main__":
@@ -330,5 +367,6 @@ if __name__ == "__main__":
     # ui = MainWindow_UI()
     # ui.setupUi(MainWindow)
     # MainWindow.show()
-    mouseoverEvent()
+    e = MainWindow_UI()
+    e.show()
     sys.exit(app.exec_())
