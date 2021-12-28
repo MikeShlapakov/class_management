@@ -19,11 +19,6 @@ from client_ui import client_ui as UI
 import admin
 
 
-ADDR = '192.168.31.151'
-# ADDR = '192.168.31.101'
-# ADDR = '172.16.1.123'
-
-
 class Desktop():
     def __init__(self):
         sock = socket()
@@ -82,18 +77,20 @@ class Desktop():
         self.screen_sharing_sock.send(str(screenSize).encode('utf-8').strip())
         self.screen_sharing_sock.recv(1)
         scale = 0.5
-        while True:
-            data = self.get_screenshot()
-            img = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(img)  # converting the array to image
-            new_scale = (int(img.size[0]*scale), int(img.size[1]*scale))  # compress the image with scale 0.5
-            img = img.resize(new_scale, Image.ANTIALIAS)
-            img_bytes = io.BytesIO()
-            img.save(img_bytes, format='JPEG', optimize=True, quality=80)  # optimize the image and convert it to bytes
-            # send image
-            self.screen_sharing_sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
-            self.screen_sharing_sock.send(img_bytes.getvalue())
-            # sock.recv(1)
+        try:
+            while True:
+                data = self.get_screenshot()
+                img = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(img)  # converting the array to image
+                new_scale = (int(img.size[0]*scale), int(img.size[1]*scale))  # compress the image with scale 0.5
+                img = img.resize(new_scale, Image.ANTIALIAS)
+                img_bytes = io.BytesIO()
+                img.save(img_bytes, format='JPEG', optimize=True, quality=80)  # optimize the image and convert it to bytes
+                # send image
+                self.screen_sharing_sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
+                self.screen_sharing_sock.send(img_bytes.getvalue())
+        except ConnectionResetError:
+            print("server disconnected")
 
 
     def controller(self):
@@ -133,22 +130,25 @@ class Desktop():
             kb.release(eval(key))
             self.control_sock.send(("got it").encode())
 
-        commands = {"MOVE": lambda arr: on_move(arr[1], arr[2]),
-                "CLICK": lambda arr: on_click(arr[1]),
-                "SCROLL": lambda arr: on_scroll(arr[1]),
-                "KEY": lambda arr: on_key(arr[1])}
+        try:
+            commands = {"MOVE": lambda arr: on_move(arr[1], arr[2]),
+                    "CLICK": lambda arr: on_click(arr[1]),
+                    "RELEASE": lambda arr: print(arr),
+                    "SCROLL": lambda arr: on_scroll(arr[1]),
+                    "KEY": lambda arr: on_key(arr[1])}
 
-        while True:
-            msg = self.control_sock.recv(256).decode()
-            try:
-                command = eval(msg)
-            except Exception as e:
-                print(e)
-                pass
-            else:
-                func = commands[command[0]]
-                func(command)
-
+            while True:
+                msg = self.control_sock.recv(256).decode()
+                try:
+                    command = eval(msg)
+                except Exception as e:
+                    print(e)
+                    pass
+                else:
+                    func = commands[command[0]]
+                    func(command)
+        except ConnectionResetError:
+            print("server disconnected")
 
 def LoginWindow():  # TODO splash screen
 
@@ -175,6 +175,10 @@ def LoginWindow():  # TODO splash screen
 
 
 if __name__ == '__main__':
+    ADDR = '192.168.31.156'
+    # ADDR = '192.168.31.101'
+    # ADDR = '172.16.1.123'
+
     app = QApplication(sys.argv)
     windows = {}
     LoginWindow()

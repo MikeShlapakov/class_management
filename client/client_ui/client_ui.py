@@ -37,6 +37,33 @@ class ComputerScreen(QLabel):
             self.clicked.emit(self.params)
 
 
+class ComputerScreenTab(QTabWidget):
+    clicked = pyqtSignal(dict)
+
+    def __init__(self, parent=None):
+        super(ComputerScreenTab, self).__init__(parent)
+        self.setObjectName(u"tabWidget")
+        self.setFont(QFont("Calibri", 14, QFont.Bold))
+        self.setStyleSheet(u"QTabWidget:pane{background-color: rgb(25, 25, 35);"
+                                     u"border-radius: 5px;"
+                                     u"border: 2px solid rgb(25, 25, 35);}\n"
+                                     u"QTabBar::tab { background-color: rgb(25,25,35); "
+                                     u"color: rgb(125, 125, 150);"
+                                     u"border: 2px solid rgb(90,90,100); border-bottom-color: rgb(90,90,100);"
+                                     u"border-top-left-radius: 4px; "
+                                     u"border-top-right-radius: 4px; min-width: 8ex; padding: 2px;}\n"
+                                     u"QTabBar::tab:selected, QTabBar::tab:hover { "
+                                     u"background: rgb(90,90,115);"
+                                     u"color: rgb(25, 25, 35);}"
+                                     u"QTabBar::tab:selected { border-color: rgb(30,30,40); border-bottom-color:rgb(40,40,50); }"
+                                     u"QTabBar::tab:!selected { margin-top: 2px;}")
+
+    def mousePressEvent(self, *args, **kwargs):
+        self.clicked.emit({"name":self.currentWidget().objectName()})
+
+    # def enterEvent(self, event):
+    #     self.clicked.emit(self.currentWidget())
+
 class Login_UI(object):
     """
     The login window
@@ -103,7 +130,7 @@ class Login_UI(object):
         self.username_entry.setStyleSheet(u"QLineEdit{\n"
                                           "	border: 2px solid rgb(65, 65, 90);\n"
                                           "	border-radius: 15px;\n"
-                                          "	color:#FFF;\n"
+                                          "	color:#FFFF;\n"
                                           "	padding-left: 20px;\n"
                                           "	padding-right: 20px;\n"
                                           "	background-color: rgb(40, 40, 60);\n"
@@ -269,18 +296,18 @@ class MainWindow_UI(QMainWindow):
         self.gridLayout.setObjectName(u"gridLayout")
 
         self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.gridLayout.addItem(self.verticalSpacer, 0, 2, 1, 1)
+        self.gridLayout.addItem(self.verticalSpacer, 0, 1, 1, 1)
 
         self.verticalSpacer_2 = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.gridLayout.addItem(self.verticalSpacer_2, 3, 2, 1, 1)
+        self.gridLayout.addItem(self.verticalSpacer_2, 2, 1, 1, 1)
 
         self.horizontalSpacer = QSpacerItem(50, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.gridLayout.addItem(self.horizontalSpacer, 2, 1, 1, 1)
+        self.gridLayout.addItem(self.horizontalSpacer, 1, 0, 1, 1)
 
         self.horizontalSpacer_2 = QSpacerItem(50, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.gridLayout.addItem(self.horizontalSpacer_2, 2, 3, 1, 1)
+        self.gridLayout.addItem(self.horizontalSpacer_2, 1, 2, 1, 1)
 
-        self.widget = QWidget(self.centralwidget)
+        self.widget = QFrame(self.centralwidget)
         self.widget.setObjectName(u"widget")
         self.widget.setMinimumSize(QSize(960, 540))
         self.widget.setStyleSheet("background-color: rgb(65, 65, 90);")
@@ -293,10 +320,8 @@ class MainWindow_UI(QMainWindow):
         self.comp1 = ComputerScreen(self.widget)
         self.comp2 = ComputerScreen(self.widget)
         self.comp3 = ComputerScreen(self.widget)
-        self.screen = QLabel(self.widget)
         # =====================================================================
-
-        self.gridLayout.addWidget(self.widget, 2, 2, 1, 1)
+        self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
 
         self.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(self)
@@ -336,7 +361,6 @@ class ComputerScreen_UI(QMainWindow):
 
         self.centralwidget = QWidget(self)
         self.centralwidget.setObjectName(u"centralwidget")
-
 
         self.Hlayout = QHBoxLayout(self.centralwidget)
         self.Hlayout.setObjectName(u"Hlayout")

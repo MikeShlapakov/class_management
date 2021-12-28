@@ -1,5 +1,6 @@
 import socket
 import io
+import threading
 from pynput import mouse, keyboard
 from threading import Thread
 import time
@@ -7,8 +8,9 @@ import win32api as win
 import numpy
 # PyQt5
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QSizePolicy, QSpacerItem, QVBoxLayout, QHBoxLayout
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QSizePolicy, \
+    QSpacerItem, QVBoxLayout, QHBoxLayout, QWidgetItem, QSpacerItem, QTabWidget
+from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor
 from PyQt5.QtCore import QRect, Qt, QSize
 from client_ui import client_ui as UI
 
@@ -55,13 +57,13 @@ class MainWindow(UI.MainWindow_UI):
         comp_num = len(connections)
         connections[addr].update({'comp': eval(f'self.comp{comp_num}')})
         connections[addr]['comp'].setObjectName(f"comp{comp_num}")
-        connections[addr]['comp'].setToolTip(f"{addr}'s computer")
+        connections[addr]['comp'].setToolTip(f"{addr}\'s computer")
         connections[addr]['comp'].setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-                                                           u"border-radius: 5px;}\n"
-                                                           u"QLabel:hover{\n"
-                                                           u"border: 5px solid rgb(80, 180, 80);\n"
-                                                           u"border-radius: 5px;\n"
-                                                           u"}")
+                                                u"border-radius: 5px;}\n"
+                                                u"QLabel:hover{\n"
+                                                u"border: 5px solid rgb(80, 180, 80);\n"
+                                                u"border-radius: 5px;\n"
+                                                u"}")
         connections[addr]['comp'].clicked.connect(self.choose_monitor)
 
         def get_position(num):
@@ -90,7 +92,8 @@ class MainWindow(UI.MainWindow_UI):
         control_port = get_open_port()
         connections[addr]['control_sock'].bind((connections[addr]['conn'].getsockname()[0], control_port))
         connections[addr]['control_sock'].listen(1)
-        connections[addr]['conn'].send((str(len(str(control_port))) + ' ' * (64 - len(str(len(str(control_port)))))).encode())
+        connections[addr]['conn'].send(
+            (str(len(str(control_port))) + ' ' * (64 - len(str(len(str(control_port)))))).encode())
         connections[addr]['conn'].send(str(control_port).encode())
         control_conn = connections[addr]['control_sock'].accept()[0]
         connections[addr].update({'control_conn': control_conn})
@@ -102,7 +105,7 @@ class MainWindow(UI.MainWindow_UI):
         pixmap = QPixmap()
         screenSize = conn.recv(64).decode()
         print(screenSize)
-        connections[addr].update({"size":screenSize})
+        connections[addr].update({"size": screenSize})
         conn.send(b'1')
         try:
             while True:
@@ -112,15 +115,21 @@ class MainWindow(UI.MainWindow_UI):
                     img += conn.recv(eval(img_len.decode()) - len(img))
                 pixmap.loadFromData(img)
                 pixmap.scaled(comp_screen.width(), comp_screen.height(), Qt.KeepAspectRatio,
-                                   Qt.SmoothTransformation)
+                              Qt.SmoothTransformation)
                 comp_screen.setScaledContents(True)
                 comp_screen.setPixmap(QPixmap(pixmap))
                 comp_screen.setAlignment(Qt.AlignCenter)
 
         except ConnectionResetError:
-            QMessageBox.about(QWidget(), "ERROR",
-                              "[SERVER]: The remote host forcibly terminated the existing self.connection!")
-            conn.close()
+            print(f"{addr} disconnected")
+            items = list(connections[addr].keys())
+            for item in items:
+                if item == "comp":
+                    connections[addr][item].setParent(None)
+                elif item in ["conn", "screen_sharing_sock", "screen_sharing_conn", "control_sock", "control_conn"]:
+                    connections[addr][item].close()
+                connections[addr].pop(item)
+            connections.pop(addr)
         except Exception as e:
             print(e)
 
@@ -135,36 +144,80 @@ class MainWindow(UI.MainWindow_UI):
                     addr = address
                     break
             if connections[addr]['comp'].pixmap():
+                layout = self.gridLayout
+                for i in reversed(range(layout.count())):
+                    item = layout.itemAt(i)
+                    if isinstance(item, QWidgetItem):
+                        print("widget" + str(item))
+                        item.widget().close()
+                        # or
+                        # item.widget().setParent(None)
+                    elif isinstance(item, QSpacerItem):
+                        print("spacer " + str(item))
+                        # no need to do extra stuff
+                    else:
+                        print("layout " + str(item))
+                        self.clearLayout(item.layout())
+                    # remove the item from layout
+                    layout.removeItem(item)
+
+                self.verticalLayout = QVBoxLayout()
+                self.verticalLayout.setObjectName(u"verticalLayout")
+                self.back_to_main_btn = QPushButton(self.centralwidget)
+                self.back_to_main_btn.setObjectName(u"back_to_main_btn")
+                self.back_to_main_btn.setFont(QFont("Calibri", 14, QFont.Bold))
+                self.back_to_main_btn.setCursor(QCursor(Qt.PointingHandCursor))
+                self.back_to_main_btn.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
+                                                    "border-radius: 5px;\n"
+                                                    "color: rgb(30, 30, 40);\n"
+                                                    "padding-left: 20px;\n"
+                                                    "padding-right: 20px;\n"
+                                                    "background-color: rgb(65, 65, 90);}"
+                                                    "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
+                                                    "color:rgb(180, 180, 180);\n"
+                                                    "background-color: rgb(80, 80, 120);}")
+
+                self.verticalLayout.addWidget(self.back_to_main_btn)
+
+                self.tabWidget = UI.ComputerScreenTab(self.centralwidget)
                 for address in connections:
-                    #if connections[address]['comp'].objectName() != action["name"]:
-                    connections[address]['comp'].setParent(None)
-                # connections[addr]['comp'] = self.screen
-                # connections[addr]['comp'].setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
-                self.verticalSpacer.changeSize(1, 5, QSizePolicy.Minimum, QSizePolicy.Maximum)
-                self.verticalSpacer_2.changeSize(1, 5, QSizePolicy.Minimum, QSizePolicy.Minimum)
-                self.horizontalSpacer.changeSize(5, 1, QSizePolicy.Minimum, QSizePolicy.Minimum)
-                self.horizontalSpacer_2.changeSize(5, 1, QSizePolicy.Minimum, QSizePolicy.Minimum)
-                QWidget().setLayout(self.gridLayout_2)
-                self.vbox = QVBoxLayout(self.widget)
-                self.widget.setLayout(self.vbox)
-                self.vbox.setObjectName(u"vbox")
-                self.vbox.addWidget(self.screen.setStyleSheet("background-color: rgb(100, 100, 100);"))
-                print(self.widget)
-                self.showMaximized()
-                self.setWindowTitle(f'{addr[0]}\'s monitor')
+                    self.tabWidget.addTab(connections[address]['comp'], f'{address}')
+                self.tabWidget.clicked.connect(self.start_controlling)
+
+                self.verticalLayout.addWidget(self.tabWidget)
+
+                self.gridLayout.addLayout(self.verticalLayout, 1, 1, 1, 1)
+
+                connections[addr]['comp'].disconnect()
                 connections[addr]['comp'].setMaximumSize(QSize(10000, 10000))
-                # connections[addr]['comp'].setMinimumSize(QSize(eval(connections[addr]['size'])[0]-100,eval(connections[addr]['size'])[1]-100))
-                # comp_screen = UI.ComputerScreen_UI()
-                # connections[addr]['comp'] = comp_screen.screen
-                # windows['monitor'] = comp_screen
-                # print(windows)
-                # Controlling = Thread(target=self.controlling, args=(addr,), daemon=True)
-                # Controlling.start()
             else:
                 print("you cant connect to this computer")
 
+    def start_controlling(self, action):
+        print(f"start_controlling - {action}")
+        print(f"threads running - {threading.active_count()}")
+        print(f"connections - {connections}")
+        for address in connections:
+            if connections[address]['comp'].objectName() == action["name"]:
+                addr = address
+                break
+            else:
+                if connections[address]['control_thread']:
+                    connections[address]['control_thread']['thread'].join()
+                    connections[address]['control_thread']['mouse_listener'].stop()
+                    connections[address]['control_thread']['mouse_listener'].join()
+                    connections[address]['control_thread']['kb_listener'].stop()
+                    connections[address]['control_thread']['kb_listener'].join()
+                    connections[address]['control_thread'] = None
+
+        Controlling = Thread(target=self.controlling, args=(addr,), daemon=True)
+        Controlling.start()
+        connections[addr].update({'control_thread': {'thread': Controlling}})
+
     def controlling(self, addr):
         conn = connections[addr]['control_conn']
+        size = connections[addr]['size']
+
         def on_move(x, y):
             win_x, win_y = self.frameGeometry().x() + (
                     self.frameGeometry().width() - connections[addr]['comp'].width()), self.frameGeometry().y() + (
@@ -197,8 +250,8 @@ class MainWindow(UI.MainWindow_UI):
                 conn.send(command.encode('utf-8').strip())
                 conn.recv(256)
 
-        listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
-        listener.start()
+        mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
+        mouse_listener.start()
 
         def on_press(key):
             ms = mouse.Controller()
@@ -212,13 +265,15 @@ class MainWindow(UI.MainWindow_UI):
                 conn.send(command.encode('utf-8').strip())
                 conn.recv(256)
 
-        listener = keyboard.Listener(on_press=on_press)
-        listener.start()
+        kb_listener = keyboard.Listener(on_press=on_press)
+        kb_listener.start()
+
+        connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener':kb_listener})
 
 
 def main():
     ADMIN = socket.socket()
-    ADDR = '192.168.31.151'
+    ADDR = '192.168.31.156'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
     # ADDR = '172.16.5.148'
