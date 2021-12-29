@@ -21,25 +21,35 @@ import admin
 
 class Desktop():
     def __init__(self):
-        sock = socket()
-        sock.connect((ADDR, 12121))
-        msg_len = sock.recv(64)
-        port = sock.recv(eval(msg_len.decode()))
-        print(port)
-        self.screen_sharing_sock = socket()
-        self.screen_sharing_sock.connect((ADDR, eval(port.decode())))
+        self.main_sock = socket()
+        self.main_sock.connect((ADDR, 12121))
 
+        msg_len = self.main_sock.recv(64)
+        self.screen_saring_port = eval(self.main_sock.recv(eval(msg_len.decode())).decode())
+        print(self.screen_saring_port)
+        self.screen_sharing_sock = socket(family=AF_INET, type=SOCK_DGRAM)
         self.screansharing = Thread(target=self.send_screenshot, daemon=True)
         self.screansharing.start()
 
-        msg_len = sock.recv(64)
-        port = sock.recv(eval(msg_len.decode()))
-        print(port)
-        self.control_sock = socket()
-        self.control_sock.connect((ADDR, eval(port.decode())))
-
+        msg_len = self.main_sock.recv(64)
+        self.control_port = eval(self.main_sock.recv(eval(msg_len.decode())).decode())
+        print(self.control_port)
+        self.control_sock = socket(family=AF_INET, type=SOCK_DGRAM)
+        self.control_sock.bind((self.main_sock.getsockname()[0], self.control_port))
         self.controling = Thread(target=self.controller, daemon=True)
         self.controling.start()
+
+        msg_len = self.main_sock.recv(64)
+        self.send_msg_port = eval(self.main_sock.recv(eval(msg_len.decode())).decode())
+        print(self.send_msg_port)
+        self.send_msg_sock = socket(family=AF_INET, type=SOCK_DGRAM)
+        self.send_msg_sock.bind((self.main_sock.getsockname()[0], self.send_msg_port))
+
+        # mouse_listener = mouse.Listener(on_move=self.alert, on_click=self.alert,on_scroll=self.alert)
+        # mouse_listener.start()
+
+        kb_listener = keyboard.Listener(on_press=self.alert)
+        kb_listener.start()
 
 
     def get_screenshot(self):
@@ -74,8 +84,9 @@ class Desktop():
 
     def send_screenshot(self):
         screenSize = [win.GetSystemMetrics(0),win.GetSystemMetrics(1)]
-        self.screen_sharing_sock.send(str(screenSize).encode('utf-8').strip())
-        self.screen_sharing_sock.recv(1)
+        addr = (ADDR,self.screen_saring_port)
+        self.screen_sharing_sock.sendto(str(screenSize).encode('utf-8'), addr)
+        self.screen_sharing_sock.recvfrom(1)
         scale = 0.5
         try:
             while True:
@@ -87,24 +98,24 @@ class Desktop():
                 img_bytes = io.BytesIO()
                 img.save(img_bytes, format='JPEG', optimize=True, quality=80)  # optimize the image and convert it to bytes
                 # send image
-                self.screen_sharing_sock.send((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode())
-                self.screen_sharing_sock.send(img_bytes.getvalue())
+                self.screen_sharing_sock.sendto((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode(), addr)
+                self.screen_sharing_sock.sendto(img_bytes.getvalue(), addr)
         except ConnectionResetError:
             print("server disconnected")
 
 
     def controller(self):
+        conn = self.control_sock
+        addr = (ADDR, self.control_port)
         ms = mouse.Controller()
         kb = keyboard.Controller()
 
         def on_move(x,y):
             ms.position = (x,y)
-            self.control_sock.send(("got it").encode())
 
         def on_click(button):
             ms.press(Button.left if button.find('left') else Button.right)
-            self.control_sock.send(("got it").encode())
-            msg = self.control_sock.recv(256).decode()
+            msg = conn.recvfrom(256)[0].decode()
             try:
                 command = eval(msg)
             except Exception as e:
@@ -113,22 +124,19 @@ class Desktop():
                 while command[0] != "RELEASE":
                     func = commands[command[0]]
                     func(command)
-                    msg = self.control_sock.recv(256).decode()
+                    msg = conn.recvfrom(256)[0].decode()
                     try:
                         command = eval(msg)
                     except Exception as e:
                         print(e)
-                self.control_sock.send(("got it").encode())
             ms.release(Button.left if button.find('left') else Button.right)
 
         def on_scroll(scroll):
             ms.scroll(0, scroll)
-            self.control_sock.send(("got it").encode())
 
         def on_key(key):
             kb.press(eval(key))
             kb.release(eval(key))
-            self.control_sock.send(("got it").encode())
 
         try:
             commands = {"MOVE": lambda arr: on_move(arr[1], arr[2]),
@@ -138,7 +146,7 @@ class Desktop():
                     "KEY": lambda arr: on_key(arr[1])}
 
             while True:
-                msg = self.control_sock.recv(256).decode()
+                msg = conn.recvfrom(256)[0].decode()
                 try:
                     command = eval(msg)
                 except Exception as e:
@@ -149,6 +157,14 @@ class Desktop():
                     func(command)
         except ConnectionResetError:
             print("server disconnected")
+
+    def alert(self, *args):
+        msg = "ALERT"
+        addr = (ADDR, self.send_msg_port)
+        msg_len = len(msg)
+        self.send_msg_sock.sendto((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode(), addr)
+        self.send_msg_sock.sendto(msg.encode(), addr)
+
 
 def LoginWindow():  # TODO splash screen
 
@@ -172,8 +188,6 @@ def LoginWindow():  # TODO splash screen
     window.show()
     ui.signin_btn.clicked.connect(lambda: signin(ui.username_entry.text(),ui.password_entry.text()))
     ui.signup_btn.clicked.connect(lambda: signup(ui.username_entry.text(), ui.password_entry.text()))
-
-
 if __name__ == '__main__':
     ADDR = '192.168.31.156'
     # ADDR = '192.168.31.101'

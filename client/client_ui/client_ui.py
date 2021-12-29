@@ -66,9 +66,10 @@ class ComputerScreenTab(QTabWidget):
 
     # def mousePressEvent(self, *args, **kwargs):
     #     self.clicked.emit({"name":self.currentWidget().objectName()})
+    #
+    # def enterEvent(self, event):
+    #     self.clicked.emit({"name":self.currentWidget().objectName()})
 
-    def enterEvent(self, event):
-        self.clicked.emit({"name":self.currentWidget().objectName()})
 
 class Login_UI(object):
     """
@@ -313,21 +314,22 @@ class MainWindow_UI(QMainWindow):
         self.horizontalSpacer_2 = QSpacerItem(50, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.gridLayout.addItem(self.horizontalSpacer_2, 1, 2, 1, 1)
 
-        self.widget = QFrame(self.centralwidget)
-        self.widget.setObjectName(u"widget")
-        self.widget.setMinimumSize(QSize(960, 540))
-        self.widget.setStyleSheet("background-color: rgb(65, 65, 90);")
-        self.widget.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
-        self.gridLayout_2 = QGridLayout(self.widget)
+        # self.widget = QFrame(self.centralwidget)
+        # self.widget.setObjectName(u"widget")
+        # self.widget.setMinimumSize(QSize(960, 540))
+        # self.widget.setStyleSheet("background-color: rgb(65, 65, 90);")
+        # self.widget.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
+
+        self.gridLayout_2 = QGridLayout()
         self.gridLayout_2.setObjectName(u"gridLayout_2")
 
         # =====================================================================
-        self.comp0 = ComputerScreen(self.widget)
-        self.comp1 = ComputerScreen(self.widget)
-        self.comp2 = ComputerScreen(self.widget)
-        self.comp3 = ComputerScreen(self.widget)
+        self.comp0 = ComputerScreen(self.centralwidget)
+        self.comp1 = ComputerScreen(self.centralwidget)
+        self.comp2 = ComputerScreen(self.centralwidget)
+        self.comp3 = ComputerScreen(self.centralwidget)
         # =====================================================================
-        self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
+        self.gridLayout.addLayout(self.gridLayout_2, 1, 1, 1, 1)
 
         self.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(self)
@@ -414,6 +416,6 @@ if __name__ == "__main__":
     # ui.setupUi(MainWindow)
     # MainWindow.show()
     e = MainWindow_UI()
-    e = TabView_UI()
+    # e = TabView_UI()
     e.show()
     sys.exit(app.exec_())
