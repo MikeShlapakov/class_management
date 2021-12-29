@@ -36,6 +36,12 @@ class ComputerScreen(QLabel):
         if self.params == {"name":self.objectName(),"action":"Click"}:
             self.clicked.emit(self.params)
 
+    def enterEvent(self, event):
+        self.clicked.emit({"name": self.objectName(), "action":"Enter"})
+
+    def leaveEvent(self, *args, **kwargs):
+        self.clicked.emit({"name": self.objectName(), "action":"Leave"})
+
 
 class ComputerScreenTab(QTabWidget):
     clicked = pyqtSignal(dict)
@@ -58,11 +64,11 @@ class ComputerScreenTab(QTabWidget):
                                      u"QTabBar::tab:selected { border-color: rgb(30,30,40); border-bottom-color:rgb(40,40,50); }"
                                      u"QTabBar::tab:!selected { margin-top: 2px;}")
 
-    def mousePressEvent(self, *args, **kwargs):
-        self.clicked.emit({"name":self.currentWidget().objectName()})
+    # def mousePressEvent(self, *args, **kwargs):
+    #     self.clicked.emit({"name":self.currentWidget().objectName()})
 
-    # def enterEvent(self, event):
-    #     self.clicked.emit(self.currentWidget())
+    def enterEvent(self, event):
+        self.clicked.emit({"name":self.currentWidget().objectName()})
 
 class Login_UI(object):
     """
@@ -282,7 +288,7 @@ class Login_UI(object):
 class MainWindow_UI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setObjectName(u"Window")
+        self.setObjectName(u"MainWindow")
         self.resize(1000, 700)
         palette = QPalette()
         brush = QBrush(QColor(30, 30, 40, 255))
@@ -339,48 +345,64 @@ class MainWindow_UI(QMainWindow):
     # setupUi
 
     def retranslateUi(self, Window):
-        Window.setWindowTitle(QCoreApplication.translate("Window", u"My Class", None))
+        Window.setWindowTitle(QCoreApplication.translate("MainWindow", u"My Class", None))
     # retranslateUi
 
 
-class ComputerScreen_UI(QMainWindow):
+class TabView_UI(QMainWindow):
     def __init__(self):
         super().__init__()
-        # flags = Qt.WindowFlags(Qt.FramelessWindowHint)  # Qt.WindowStaysOnTopHint |
-        # self.setWindowFlags(flags)
-        # setting palette
-        self.resize(800, 600)
+        self.setObjectName(u"TabWindow")
+        self.resize(1000, 700)
         palette = QPalette()
-        brush = QBrush(QColor(25, 25, 35, 255))
+        brush = QBrush(QColor(30, 30, 40, 255))
         palette.setBrush(QPalette.Active, QPalette.Window, brush)
         palette.setBrush(QPalette.Inactive, QPalette.Window, brush)
         palette.setBrush(QPalette.Disabled, QPalette.Window, brush)
         self.setPalette(palette)
-        # setting geometry
-        self.setGeometry(100, 100, 600, 400)
-
         self.centralwidget = QWidget(self)
         self.centralwidget.setObjectName(u"centralwidget")
+        self.gridLayout = QGridLayout(self.centralwidget)
+        self.gridLayout.setObjectName(u"gridLayout")
 
-        self.Hlayout = QHBoxLayout(self.centralwidget)
-        self.Hlayout.setObjectName(u"Hlayout")
-        # self.setLayout(self.Hlayout)
-        # calling method
-        self.UiComponents()
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.back_to_main_btn = QPushButton(self.centralwidget)
+        self.back_to_main_btn.setObjectName(u"back_to_main_btn")
+        self.back_to_main_btn.setText(u"VIEW ALL")
+        self.back_to_main_btn.setFont(QFont("Calibri", 14, QFont.Bold))
+        self.back_to_main_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.back_to_main_btn.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
+                                            "border-radius: 5px;\n"
+                                            "color: rgb(30, 30, 40);\n"
+                                            "padding-left: 20px;\n"
+                                            "padding-right: 20px;\n"
+                                            "background-color: rgb(65, 65, 90);}"
+                                            "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
+                                            "color:rgb(180, 180, 180);\n"
+                                            "background-color: rgb(80, 80, 120);}")
+
+        self.verticalLayout.addWidget(self.back_to_main_btn)
+
+        self.tabWidget = ComputerScreenTab(self.centralwidget)
+
+        self.verticalLayout.addWidget(self.tabWidget)
+
+        self.gridLayout.addLayout(self.verticalLayout, 1, 1, 1, 1)
+
+        self.retranslateUi(self)
+
         self.setCentralWidget(self.centralwidget)
-    # method for widgets
-    def UiComponents(self):
-        # creating label
-        self.screen = QLabel("screen", self.centralwidget)
-        # setting geometry to label
-        # self.screen.setGeometry(100, 100, 120, 40)
-        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.screen.setSizePolicy(sizePolicy)
-        # adding border to label
-        self.screen.setStyleSheet("border : 2px solid black")
-        # opening window in maximized size
-        self.Hlayout.addWidget(self.screen)
-        self.showMaximized()
+
+        QMetaObject.connectSlotsByName(self)
+        # self.showMaximized()
+
+    # setupUi
+
+    def retranslateUi(self, Window):
+        Window.setWindowTitle(QCoreApplication.translate("TabWindow", u"My Class", None))
+        # retranslateUi
+
 
 
 if __name__ == "__main__":
@@ -392,5 +414,6 @@ if __name__ == "__main__":
     # ui.setupUi(MainWindow)
     # MainWindow.show()
     e = MainWindow_UI()
+    e = TabView_UI()
     e.show()
     sys.exit(app.exec_())

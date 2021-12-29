@@ -64,7 +64,7 @@ class MainWindow(UI.MainWindow_UI):
                                                 u"border: 5px solid rgb(80, 180, 80);\n"
                                                 u"border-radius: 5px;\n"
                                                 u"}")
-        connections[addr]['comp'].clicked.connect(self.choose_monitor)
+        connections[addr]['comp'].clicked.connect(self.tab_control)
 
         def get_position(num):
             for i in range(self.row_limit):
@@ -97,6 +97,8 @@ class MainWindow(UI.MainWindow_UI):
         connections[addr]['conn'].send(str(control_port).encode())
         control_conn = connections[addr]['control_sock'].accept()[0]
         connections[addr].update({'control_conn': control_conn})
+
+        connections[addr].update({'control_thread': None})
         return
 
     def screen_sharing(self, addr):
@@ -105,7 +107,7 @@ class MainWindow(UI.MainWindow_UI):
         pixmap = QPixmap()
         screenSize = conn.recv(64).decode()
         print(screenSize)
-        connections[addr].update({"size": screenSize})
+        connections[addr].update({"size": eval(screenSize)})
         conn.send(b'1')
         try:
             while True:
@@ -133,147 +135,98 @@ class MainWindow(UI.MainWindow_UI):
         except Exception as e:
             print(e)
 
-    def choose_monitor(self, action):
+    def tab_control(self, event):
         """
         checks the action. if double-clicked on a screen: start to control it
         """
-        print(action)
-        if action['action'] == "Double Click":
-            for address in connections:
-                if connections[address]['comp'].objectName() == action["name"]:
-                    addr = address
-                    break
-            if connections[addr]['comp'].pixmap():
-                layout = self.gridLayout
-                for i in reversed(range(layout.count())):
-                    item = layout.itemAt(i)
-                    if isinstance(item, QWidgetItem):
-                        print("widget" + str(item))
-                        item.widget().close()
-                        # or
-                        # item.widget().setParent(None)
-                    elif isinstance(item, QSpacerItem):
-                        print("spacer " + str(item))
-                        # no need to do extra stuff
+        print(event)
+        if event['action'] == "Double Click":
+            for addr in connections:
+                if connections[addr]['comp'].objectName() == event['name']:
+                    if connections[addr]['comp'].pixmap():
+                        self.tab_view = UI.TabView_UI()
+                        for address in connections:
+                            self.tab_view.tabWidget.addTab(connections[address]['comp'], f'{address}')
+                            connections[address]['comp'].disconnect()
+                            connections[address]['comp'].setMaximumSize(QSize(10000, 10000))
+                            connections[address]['comp'].clicked.connect(self.start_controlling)
+                        windows['tab_view'] = self.tab_view
+                        windows['tab_view'].show()
+                        windows['main_window'].close()
                     else:
-                        print("layout " + str(item))
-                        self.clearLayout(item.layout())
-                    # remove the item from layout
-                    layout.removeItem(item)
+                        print("you cant connect to this computer")
 
-                self.verticalLayout = QVBoxLayout()
-                self.verticalLayout.setObjectName(u"verticalLayout")
-                self.back_to_main_btn = QPushButton(self.centralwidget)
-                self.back_to_main_btn.setObjectName(u"back_to_main_btn")
-                self.back_to_main_btn.setFont(QFont("Calibri", 14, QFont.Bold))
-                self.back_to_main_btn.setCursor(QCursor(Qt.PointingHandCursor))
-                self.back_to_main_btn.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
-                                                    "border-radius: 5px;\n"
-                                                    "color: rgb(30, 30, 40);\n"
-                                                    "padding-left: 20px;\n"
-                                                    "padding-right: 20px;\n"
-                                                    "background-color: rgb(65, 65, 90);}"
-                                                    "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
-                                                    "color:rgb(180, 180, 180);\n"
-                                                    "background-color: rgb(80, 80, 120);}")
-
-                self.verticalLayout.addWidget(self.back_to_main_btn)
-
-                self.tabWidget = UI.ComputerScreenTab(self.centralwidget)
-                for address in connections:
-                    self.tabWidget.addTab(connections[address]['comp'], f'{address}')
-                self.tabWidget.clicked.connect(self.start_controlling)
-
-                self.verticalLayout.addWidget(self.tabWidget)
-
-                self.gridLayout.addLayout(self.verticalLayout, 1, 1, 1, 1)
-
-                connections[addr]['comp'].disconnect()
-                connections[addr]['comp'].setMaximumSize(QSize(10000, 10000))
-            else:
-                print("you cant connect to this computer")
-
-    def start_controlling(self, action):
-        print(f"start_controlling - {action}")
-        print(f"threads running - {threading.active_count()}")
-        print(f"connections - {connections}")
-        for address in connections:
-            if connections[address]['comp'].objectName() == action["name"]:
-                addr = address
-                break
-            else:
-                if connections[address]['control_thread']:
-                    connections[address]['control_thread']['thread'].join()
-                    connections[address]['control_thread']['mouse_listener'].stop()
-                    connections[address]['control_thread']['mouse_listener'].join()
-                    connections[address]['control_thread']['kb_listener'].stop()
-                    connections[address]['control_thread']['kb_listener'].join()
-                    connections[address]['control_thread'] = None
-
-        Controlling = Thread(target=self.controlling, args=(addr,), daemon=True)
-        Controlling.start()
-        connections[addr].update({'control_thread': {'thread': Controlling}})
+    def start_controlling(self, event):
+        # print(f"start_controlling - {event}")
+        # print(f"threads running - {threading.active_count()}")
+        # print(f"connections - {connections}")
+        if event['action'] == "Enter":
+            for addr in connections:
+                if connections[addr]['comp'].objectName() == event["name"]:
+                    if connections[addr]['control_thread']:
+                        return
+                    Controlling = Thread(target=self.controlling, args=(addr,), daemon=True)
+                    Controlling.start()
+                    connections[addr]['control_thread'] = {'thread': Controlling}
+                    return
+        if event['action'] == "Leave":
+            for addr in connections:
+                if connections[addr]['comp'].objectName() == event["name"]:
+                    connections[addr]['control_thread']['thread'].join()
+                    connections[addr]['control_thread']['mouse_listener'].stop()
+                    connections[addr]['control_thread']['mouse_listener'].join()
+                    connections[addr]['control_thread']['kb_listener'].stop()
+                    connections[addr]['control_thread']['kb_listener'].join()
+                    connections[addr]['control_thread'] = None
 
     def controlling(self, addr):
         conn = connections[addr]['control_conn']
         size = connections[addr]['size']
+        screen = connections[addr]['comp']
 
         def on_move(x, y):
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - connections[addr]['comp'].width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - connections[addr]['comp'].height())
-            win_width, win_height = connections[addr]['comp'].width(), connections[addr]['comp'].height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                x = x - win_x
-                y = y - win_y
-                command = str(['MOVE', x, y])
-                conn.send(command.encode('utf-8').strip())
-                conn.recv(256)
+            screen_x = self.tab_view.pos().x() + self.tab_view.tabWidget.pos().x() + 2
+            screen_y = self.tab_view.pos().y() + self.tab_view.tabWidget.pos().y() + 60
+            screen_width, screen_height = screen.width(), screen.height()
+            width, height = size[0], size[1]
+            x_ratio, y_ration = round(screen_width / width, 2), round(screen_height / height, 2)
+            x = round((x - screen_x) / x_ratio)
+            if x < 0 or width < x:
+                x = 0 if x < 0 else width
+            y = round((y - screen_y) / y_ration)
+            if y < 0 or height < y:
+                y = 0 if y < 0 else height
+            command = str(['MOVE', x, y])
+            conn.send(command.encode('utf-8').strip())
+            conn.recv(256)
 
         def on_click(x, y, button, pressed):
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - connections[addr]['comp'].width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - connections[addr]['comp'].height())
-            win_width, win_height = connections[addr]['comp'].width(), connections[addr]['comp'].height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                command = str(['CLICK' if pressed else 'RELEASE', str(button)])
-                conn.send(command.encode('utf-8').strip())
-                conn.recv(256)
+            command = str(['CLICK' if pressed else 'RELEASE', str(button)])
+            conn.send(command.encode('utf-8').strip())
+            conn.recv(256)
 
         def on_scroll(x, y, dx, dy):
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - connections[addr]['comp'].width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - connections[addr]['comp'].height())
-            win_width, win_height = connections[addr]['comp'].width(), connections[addr]['comp'].height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                command = str(['SCROLL', dy])
-                conn.send(command.encode('utf-8').strip())
-                conn.recv(256)
+            command = str(['SCROLL', dy])
+            conn.send(command.encode('utf-8').strip())
+            conn.recv(256)
 
         mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
         mouse_listener.start()
 
         def on_press(key):
-            ms = mouse.Controller()
-            x, y = ms.position
-            win_x, win_y = self.frameGeometry().x() + (
-                    self.frameGeometry().width() - connections[addr]['comp'].width()), self.frameGeometry().y() + (
-                                   self.frameGeometry().height() - connections[addr]['comp'].height())
-            win_width, win_height = connections[addr]['comp'].width(), connections[addr]['comp'].height()
-            if win_x <= x <= win_x + win_width and win_y <= y <= win_y + win_height:
-                command = str(['KEY', str(key)])
-                conn.send(command.encode('utf-8').strip())
-                conn.recv(256)
+            command = str(['KEY', str(key)])
+            conn.send(command.encode('utf-8').strip())
+            conn.recv(256)
 
         kb_listener = keyboard.Listener(on_press=on_press)
         kb_listener.start()
 
-        connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener':kb_listener})
+        connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener': kb_listener})
 
 
 def main():
     ADMIN = socket.socket()
-    ADDR = '192.168.31.156'
+    ADDR = '192.168.31.168'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
     # ADDR = '172.16.5.148'
