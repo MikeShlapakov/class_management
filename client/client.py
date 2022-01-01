@@ -28,6 +28,7 @@ class Desktop():
         self.screen_saring_port = eval(self.main_sock.recv(eval(msg_len.decode())).decode())
         print(self.screen_saring_port)
         self.screen_sharing_sock = socket(family=AF_INET, type=SOCK_DGRAM)
+        self.screen_sharing_sock.connect((self.main_sock.getpeername()[0], self.screen_saring_port))
         self.screansharing = Thread(target=self.send_screenshot, daemon=True)
         self.screansharing.start()
 
@@ -48,8 +49,8 @@ class Desktop():
         # mouse_listener = mouse.Listener(on_move=self.alert, on_click=self.alert,on_scroll=self.alert)
         # mouse_listener.start()
 
-        kb_listener = keyboard.Listener(on_press=self.alert)
-        kb_listener.start()
+        # kb_listener = keyboard.Listener(on_press=self.alert)
+        # kb_listener.start()
 
 
     def get_screenshot(self):
@@ -71,7 +72,7 @@ class Desktop():
 
         # convert the raw data into a format opencv can read
         signedIntsArray = bmp.GetBitmapBits(True)
-        img = np.fromstring(signedIntsArray, dtype='uint8')
+        img = np.frombuffer(signedIntsArray, dtype='uint8')
         img.shape = (h, w, 4)
 
         # free resources
@@ -85,8 +86,8 @@ class Desktop():
     def send_screenshot(self):
         screenSize = [win.GetSystemMetrics(0),win.GetSystemMetrics(1)]
         addr = (ADDR,self.screen_saring_port)
-        self.screen_sharing_sock.sendto(str(screenSize).encode('utf-8'), addr)
-        self.screen_sharing_sock.recvfrom(1)
+        self.screen_sharing_sock.send(str(screenSize).encode('utf-8'))
+        self.screen_sharing_sock.recv(1)
         scale = 0.5
         try:
             while True:
@@ -98,8 +99,10 @@ class Desktop():
                 img_bytes = io.BytesIO()
                 img.save(img_bytes, format='JPEG', optimize=True, quality=80)  # optimize the image and convert it to bytes
                 # send image
-                self.screen_sharing_sock.sendto((str(len(img_bytes.getvalue()))+' '*(64-len(str(len(img_bytes.getvalue()))))).encode(), addr)
-                self.screen_sharing_sock.sendto(img_bytes.getvalue(), addr)
+                msg_len = len(img_bytes.getvalue())
+                header = str(msg_len)+' '*(16-len(str(msg_len)))
+                self.screen_sharing_sock.send(header.encode())
+                self.screen_sharing_sock.send(img_bytes.getvalue())
         except ConnectionResetError:
             print("server disconnected")
 
@@ -115,7 +118,7 @@ class Desktop():
 
         def on_click(button):
             ms.press(Button.left if button.find('left') else Button.right)
-            msg = conn.recvfrom(256)[0].decode()
+            msg = conn.recv(256).decode()
             try:
                 command = eval(msg)
             except Exception as e:
@@ -124,7 +127,7 @@ class Desktop():
                 while command[0] != "RELEASE":
                     func = commands[command[0]]
                     func(command)
-                    msg = conn.recvfrom(256)[0].decode()
+                    msg = conn.recv(256).decode()
                     try:
                         command = eval(msg)
                     except Exception as e:
@@ -146,7 +149,7 @@ class Desktop():
                     "KEY": lambda arr: on_key(arr[1])}
 
             while True:
-                msg = conn.recvfrom(256)[0].decode()
+                msg = conn.recv(256).decode()
                 try:
                     command = eval(msg)
                 except Exception as e:
@@ -188,8 +191,10 @@ def LoginWindow():  # TODO splash screen
     window.show()
     ui.signin_btn.clicked.connect(lambda: signin(ui.username_entry.text(),ui.password_entry.text()))
     ui.signup_btn.clicked.connect(lambda: signup(ui.username_entry.text(), ui.password_entry.text()))
+
+
 if __name__ == '__main__':
-    ADDR = '192.168.31.156'
+    ADDR = '192.168.31.214'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
 

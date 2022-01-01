@@ -54,9 +54,10 @@ class MainWindow(UI.MainWindow_UI):
     def new_connection(self, addr):
         global connections
         print(f'{addr} connected to the server')
-        comp_num = len(connections)
-        connections[addr].update({'comp': eval(f'self.comp{comp_num}')})
-        connections[addr]['comp'].setObjectName(f"comp{comp_num}")
+        num = len(connections)
+        connections[addr].update({'comp': eval(f'self.comp{num}')})
+        # connections[addr].update({'comp': UI.ComputerScreen(self.widget)})
+        connections[addr]['comp'].setObjectName(f"comp{num}")
         connections[addr]['comp'].setToolTip(f"{addr}\'s computer")
         connections[addr]['comp'].setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
                                                 u"border-radius: 5px;}\n"
@@ -64,53 +65,81 @@ class MainWindow(UI.MainWindow_UI):
                                                 u"border: 5px solid rgb(80, 180, 80);\n"
                                                 u"border-radius: 5px;\n"
                                                 u"}")
-        self.grid_view()
+        # for widget in self.widget.children():
+        #     print(widget)
+        #     if isinstance(widget, QLabel):
+        #         print("widget: %s" % (widget.objectName()))
 
-    def grid_view(self):
-        if 'tab_view' in windows:
-            self.show()
-            windows['tab_view'].close()
+        connections[addr].update(
+            {'screen_sharing_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+        port = get_open_port()
+        connections[addr]['screen_sharing_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
+        msg_len = len(str(port))
+        connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
+        connections[addr]['conn'].send(str(port).encode())
+        ScreenSharing = Thread(target=self.screen_sharing, args=(addr,), daemon=True)
+        ScreenSharing.start()
+
+        connections[addr].update({'control_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+        port = get_open_port()
+        connections[addr]['control_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
+        msg_len = len(str(port))
+        connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
+        connections[addr]['conn'].send(str(port).encode())
+
+        connections[addr].update({'handle_msg': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+        handle_msg_port = get_open_port()
+        connections[addr]['handle_msg'].bind((connections[addr]['conn'].getsockname()[0], handle_msg_port))
+        msg_len = len(str(handle_msg_port))
+        connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
+        connections[addr]['conn'].send(str(handle_msg_port).encode())
+        # handle_msg = Thread(target=self.handle_client_msg, args=(addr,), daemon=True)
+        # handle_msg.start()
+
+        connections[addr].update({'control_thread': None})
+        self.group_view()
+
+    def group_view(self):
+        # self.gridLayout_2 = QGridLayout()
+        # self.gridLayout_2.setObjectName(u"gridLayout_2")
         for addr in connections:
+            if 'tab_view' in windows:
+                print(f"tab count {windows['tab_view'].tabWidget.count()}")
+                windows['tab_view'].tabWidget.removeTab(0)
+                print(f"tab count {windows['tab_view'].tabWidget.count()}")
+                connections[addr]['comp'].disconnect()
+            connections[addr]['comp'].setMinimumSize(QSize(240, 135))
+            connections[addr]['comp'].setMaximumSize(QSize(480, 270))
+            connections[addr]['comp'].clicked.connect(self.tab_control)
             num = eval(connections[addr]['comp'].objectName().strip('comp')) - 1
             for row in range(self.row_limit):
                 for column in range(self.column_limit):
                     if row * self.column_limit + column == num:
+                        # if self.gridLayout_2.count() > 0:
+                        #     self.gridLayout_2.removeWidget(connections[addr]['comp'])
+                        # self.entries[row].deleteLater()
+                        # del self.entries[row]
+                        print(self.gridLayout_2.count())
                         self.gridLayout_2.addWidget(connections[addr]['comp'], row, column, 1, 1)
-            connections[addr]['comp'].setMinimumSize(QSize(240, 135))
-            connections[addr]['comp'].setMaximumSize(QSize(480, 270))
-            connections[addr]['comp'].clicked.connect(self.tab_control)
-            connections[addr]['comp'].disconnect()
-            connections[addr]['comp'].clicked.connect(self.tab_control)
-
-            if 'screen_sharing_sock' not in connections[addr]:
-                connections[addr].update({'screen_sharing_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
-                screen_sharing_port = get_open_port()
-                connections[addr]['screen_sharing_sock'].bind((connections[addr]['conn'].getsockname()[0], screen_sharing_port))
-                msg_len = len(str(screen_sharing_port))
-                connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-                connections[addr]['conn'].send(str(screen_sharing_port).encode())
-                ScreenSharing = Thread(target=self.screen_sharing, args=(addr,), daemon=True)
-                ScreenSharing.start()
-
-            if 'control_sock' not in connections[addr]:
-                connections[addr].update({'control_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
-                self.control_port = get_open_port()
-                connections[addr]['control_sock'].bind((connections[addr]['conn'].getsockname()[0], self.control_port))
-                msg_len = len(str(self.control_port))
-                connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-                connections[addr]['conn'].send(str(self.control_port).encode())
-
-            if 'handle_msg' not in connections[addr]:
-                connections[addr].update({'handle_msg': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
-                handle_msg_port = get_open_port()
-                connections[addr]['handle_msg'].bind((connections[addr]['conn'].getsockname()[0], handle_msg_port))
-                msg_len = len(str(handle_msg_port))
-                connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-                connections[addr]['conn'].send(str(handle_msg_port).encode())
-                handle_msg = Thread(target=self.handle_client_msg, args=(addr,), daemon=True)
-                handle_msg.start()
-
-            connections[addr].update({'control_thread': None})
+                        print(self.gridLayout_2.count())
+                        if 'tab_view' in windows:
+                            label = UI.ComputerScreen(self.widget)
+                            # label.setStyleSheet("background-color: rgb(70,70,70)")
+                            # label = connections[addr]['comp']
+                            label.setObjectName(f"comp{num}")
+                            label.setToolTip(f"{addr}\'s computer")
+                            label.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                                                    u"border-radius: 5px;}\n"
+                                                                    u"QLabel:hover{\n"
+                                                                    u"border: 5px solid rgb(80, 180, 80);\n"
+                                                                    u"border-radius: 5px;\n"
+                                                                    u"}")
+                            self.gridLayout_2.addWidget(label, row+10, column+10, 1, 1)
+                            connections[addr]['comp'] = label
+        self.widget.setLayout(self.gridLayout_2)
+        if 'tab_view' in windows:
+            windows['main_window'].show()
+            windows['tab_view'].close()
         print(connections)
         return
 
@@ -118,7 +147,7 @@ class MainWindow(UI.MainWindow_UI):
         """
         checks the action. if double-clicked on a screen: start to control it
         """
-        print(event)
+        # print(event)
         if event['action'] == "Double Click":
             for addr in connections:
                 if connections[addr]['comp'].objectName() == event['name']:
@@ -130,7 +159,7 @@ class MainWindow(UI.MainWindow_UI):
                             connections[address]['comp'].setMaximumSize(QSize(10000, 10000))
                             connections[address]['comp'].clicked.connect(self.start_controlling)
                         windows['tab_view'] = self.tab_view
-                        self.tab_view.back_to_main_btn.clicked.connect(self.grid_view)
+                        self.tab_view.back_to_main_btn.clicked.connect(self.group_view)
                         windows['tab_view'].show()
                         windows['main_window'].close()
                     else:
@@ -147,8 +176,10 @@ class MainWindow(UI.MainWindow_UI):
         try:
             while True:
                 try:
-                    img_len = conn.recvfrom(64)[0]
+                    img_len = conn.recvfrom(16)[0]
+                    # print(f'img_len {img_len}')
                     img = conn.recvfrom(eval(img_len.decode()))[0]
+                    # print(f'len(img) {len(img)}')
                     # print(img_len, len(img))
                     # while len(img) != eval(img_len.decode()):
                     #     img += conn.recvfrom(eval(img_len.decode()) - len(img))[0]
@@ -201,7 +232,7 @@ class MainWindow(UI.MainWindow_UI):
 
     def controlling(self, addr):
         conn = connections[addr]['control_sock']
-        address = (connections[addr]['conn'].getpeername()[0], self.control_port)
+        address = (addr[0], connections[addr]['control_sock'].getsockname()[1])
         size = connections[addr]['size']
         screen = connections[addr]['comp']
 
@@ -260,7 +291,7 @@ class MainWindow(UI.MainWindow_UI):
 
 def main():
     ADMIN = socket.socket()
-    ADDR = '192.168.31.168'
+    ADDR = '192.168.31.214'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
     # ADDR = '172.16.5.148'
