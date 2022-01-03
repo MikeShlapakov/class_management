@@ -43,12 +43,14 @@ class Desktop():
         msg_len = self.main_sock.recv(64)
         self.send_msg_port = eval(self.main_sock.recv(eval(msg_len.decode())).decode())
         print(self.send_msg_port)
-        self.send_msg_sock = socket(family=AF_INET, type=SOCK_DGRAM)
-        self.send_msg_sock.bind((self.main_sock.getsockname()[0], self.send_msg_port))
+        self.send_msg_sock = socket(family=AF_INET, type=SOCK_STREAM)
+        self.send_msg_sock.connect((self.main_sock.getpeername()[0], self.send_msg_port))
 
         # mouse_listener = mouse.Listener(on_move=self.alert, on_click=self.alert,on_scroll=self.alert)
         # mouse_listener.start()
 
+        movement_detection_thread = Thread(target=self.movement_detection, daemon=True)
+        movement_detection_thread.start()
         # kb_listener = keyboard.Listener(on_press=self.alert)
         # kb_listener.start()
 
@@ -99,10 +101,20 @@ class Desktop():
                 img_bytes = io.BytesIO()
                 img.save(img_bytes, format='JPEG', optimize=True, quality=80)  # optimize the image and convert it to bytes
                 # send image
-                msg_len = len(img_bytes.getvalue())
-                header = str(msg_len)+' '*(16-len(str(msg_len)))
+                msg = img_bytes.getvalue()
+                msg_len = len(msg)
+                # print(msg_len)
+                # while msg_len > 50000:
+                #     header = str(50000) + ' ' * (16 - len(str(50000)))
+                #     self.screen_sharing_sock.send(header.encode())
+                #     self.screen_sharing_sock.recv(1)
+                #     self.screen_sharing_sock.send(msg[:50000])
+                #     msg_len -= 50000
+                #     print(msg_len, len(msg[:50000]), len(msg[50000:]))
+                #     msg = msg[50000:]
+                header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
                 self.screen_sharing_sock.send(header.encode())
-                self.screen_sharing_sock.send(img_bytes.getvalue())
+                self.screen_sharing_sock.send(msg)
         except ConnectionResetError:
             print("server disconnected")
 
@@ -161,12 +173,19 @@ class Desktop():
         except ConnectionResetError:
             print("server disconnected")
 
+    def movement_detection(self):
+        with keyboard.Events() as events:
+            print("press")
+            for event in events:
+                if event:
+                    self.alert()
+
     def alert(self, *args):
         msg = "ALERT"
         addr = (ADDR, self.send_msg_port)
         msg_len = len(msg)
-        self.send_msg_sock.sendto((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode(), addr)
-        self.send_msg_sock.sendto(msg.encode(), addr)
+        self.send_msg_sock.send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
+        self.send_msg_sock.send(msg.encode())
 
 
 def LoginWindow():  # TODO splash screen
@@ -194,7 +213,7 @@ def LoginWindow():  # TODO splash screen
 
 
 if __name__ == '__main__':
-    ADDR = '192.168.31.214'
+    ADDR = '192.168.31.233'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
 
