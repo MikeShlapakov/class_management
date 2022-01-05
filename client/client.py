@@ -4,7 +4,7 @@ from PIL import Image
 import win32gui, win32ui, win32con
 from threading import Thread
 import sys
-import win32api as win
+import win32api
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QLineEdit
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QRect, Qt
@@ -13,10 +13,12 @@ from pynput.mouse import Button
 from pynput.keyboard import Key
 import time
 import io
-import os
+import ctypes
+from ctypes import *
 import cv2
 from client_ui import client_ui as UI
 import admin
+import mouseNkey_logger
 
 
 class Desktop():
@@ -41,19 +43,11 @@ class Desktop():
         self.controling.start()
 
         msg_len = self.main_sock.recv(64)
+        global msg_sock
         self.send_msg_port = eval(self.main_sock.recv(eval(msg_len.decode())).decode())
         print(self.send_msg_port)
-        self.send_msg_sock = socket(family=AF_INET, type=SOCK_STREAM)
-        self.send_msg_sock.connect((self.main_sock.getpeername()[0], self.send_msg_port))
-
-        # mouse_listener = mouse.Listener(on_move=self.alert, on_click=self.alert,on_scroll=self.alert)
-        # mouse_listener.start()
-
-        movement_detection_thread = Thread(target=self.movement_detection, daemon=True)
-        movement_detection_thread.start()
-        # kb_listener = keyboard.Listener(on_press=self.alert)
-        # kb_listener.start()
-
+        msg_sock = socket(family=AF_INET, type=SOCK_STREAM)
+        msg_sock.connect((self.main_sock.getpeername()[0], self.send_msg_port))
 
     def get_screenshot(self):
         """
@@ -61,7 +55,7 @@ class Desktop():
         :return: img array
         """
         # define your monitor width and height
-        w, h = win.GetSystemMetrics(0), win.GetSystemMetrics(1)
+        w, h = win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
         hwnd = None
         # get the window image data
         wDC = win32gui.GetWindowDC(hwnd)
@@ -86,7 +80,7 @@ class Desktop():
         return img
 
     def send_screenshot(self):
-        screenSize = [win.GetSystemMetrics(0),win.GetSystemMetrics(1)]
+        screenSize = [win32api.GetSystemMetrics(0),win32api.GetSystemMetrics(1)]
         addr = (ADDR,self.screen_saring_port)
         self.screen_sharing_sock.send(str(screenSize).encode('utf-8'))
         self.screen_sharing_sock.recv(1)
@@ -173,20 +167,6 @@ class Desktop():
         except ConnectionResetError:
             print("server disconnected")
 
-    def movement_detection(self):
-        with keyboard.Events() as events:
-            print("press")
-            for event in events:
-                if event:
-                    self.alert()
-
-    def alert(self, *args):
-        msg = "ALERT"
-        addr = (ADDR, self.send_msg_port)
-        msg_len = len(msg)
-        self.send_msg_sock.send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-        self.send_msg_sock.send(msg.encode())
-
 
 def LoginWindow():  # TODO splash screen
 
@@ -195,7 +175,6 @@ def LoginWindow():  # TODO splash screen
             admin.main()
             print(name, password)
         else:
-            # window.close()
             Desktop()
 
     def signup(name, password):
@@ -212,12 +191,57 @@ def LoginWindow():  # TODO splash screen
     ui.signup_btn.clicked.connect(lambda: signup(ui.username_entry.text(), ui.password_entry.text()))
 
 
-if __name__ == '__main__':
-    ADDR = '192.168.31.233'
-    # ADDR = '192.168.31.101'
-    # ADDR = '172.16.1.123'
+def hookProc(nCode, wParam, lParam):
+    # if mouseNkey_logger.user32.GetKeyState(win32con.VK_CONTROL) & 0x8000:
+    #     print("\nCtrl pressed, call uninstallHook()")
+    #     KeyLogger.uninstalHookProc()
+    #     return 0
+    if nCode == win32con.HC_ACTION and wParam == win32con.WM_KEYDOWN:
+        kb = mouseNkey_logger.KBDLLHOOKSTRUCT.from_address(lParam)
+        if kb.flags == 0 or kb.flags == 1:
+            start_hook_keyboard = Thread(target=set_hook_keyboard, daemon=True)
+            start_hook_keyboard.start()
+        elif kb.flags == 16:
+            pass
+            # if kb.vkCode in mouseNkey_logger.VK_CODE.values():
+            #     print(list(mouseNkey_logger.VK_CODE.keys())[list(mouseNkey_logger.VK_CODE.values()).index(kb.vkCode)])
+            # print(mouseNkey_logger.VK_CODE[kb.vkCode])
+        # print(kb.vkCode)
+        # return {'vkCode': kb.vkCode, 'scanCode': kb.scanCode, 'flags': kb.flags, 'time': kb.time, 'dwExtraInfo': kb.dwExtraInfo}
+    return mouseNkey_logger.user32.CallNextHookEx(KeyLogger.hooked, nCode, wParam, lParam)
 
-    app = QApplication(sys.argv)
-    windows = {}
-    LoginWindow()
-    sys.exit(app.exec())
+
+def set_hook_keyboard():
+    time.sleep(0.0001)
+    win32api.keybd_event(0x11, 0, 0, 0)
+    win32api.keybd_event(0x5A, 0, 0, 0)
+    win32api.keybd_event(0x5A, 0, win32con.KEYEVENTF_KEYUP, 0)
+    win32api.keybd_event(0x11, 0, win32con.KEYEVENTF_KEYUP, 0)
+    global msg_sock
+    alert(msg_sock)
+
+
+def alert(sock):
+    if sock:
+        msg = "ALERT"
+        msg_len = len(msg)
+        sock.send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
+        sock.send(msg.encode())
+
+
+if __name__ == '__main__':
+    HOOKPROC = WINFUNCTYPE(HRESULT, c_int, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)
+    KeyLogger = mouseNkey_logger.KeyLogger()
+    pointer = HOOKPROC(hookProc)
+    if KeyLogger.installHookProc(pointer):
+        print("Hook installed")
+        ADDR = '192.168.31.147'
+        # ADDR = '192.168.31.101'
+        # ADDR = '172.16.1.123'
+        msg_sock = None
+        app = QApplication(sys.argv)
+        windows = {}
+        LoginWindow()
+        sys.exit(app.exec_())
+    else:
+        print("Hook not installed")
