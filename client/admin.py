@@ -11,7 +11,7 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QSizePolicy, \
     QSpacerItem, QVBoxLayout, QHBoxLayout, QWidgetItem, QSpacerItem, QTabWidget, QGridLayout, QFrame
 from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor
-from PyQt5.QtCore import QRect, Qt, QSize
+from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
 from client_ui import client_ui as UI
 
 windows = {}
@@ -30,6 +30,46 @@ def get_open_port():
     return port
 
 
+class Listener(QObject):
+    finished = pyqtSignal()
+    progress = pyqtSignal(tuple)
+
+    def __init__(self, sock):
+        super().__init__()
+        self.sock = sock
+
+    def run(self):
+        """Accept incoming connections"""
+        while True:
+            try:
+                conn, addr = self.sock.accept()  # establish connection with client
+                # threading between clients and server
+                connections[addr] = {'conn': conn}
+                self.progress.emit(addr)
+            except OSError:
+                sys.exit()
+            self.finished.emit()
+
+
+class ShowMessage(QObject):
+    finished = pyqtSignal(QMessageBox)
+    progress = pyqtSignal(tuple)
+
+    def __init__(self, parent=None, addr=''):
+        super().__init__()
+        self.addr = addr
+        self.parent = parent
+
+    def run(self):
+        """Long-running task."""
+        button = QMessageBox.warning(
+            self.parent,
+            "ALERT!",
+            f"{self.addr} is trying to take control over the keyboard",
+        )
+        self.finished.emit(button)
+
+
 class MainWindow(UI.MainWindow_UI):
     def __init__(self, socket):
         super(MainWindow, self).__init__()
@@ -37,25 +77,26 @@ class MainWindow(UI.MainWindow_UI):
         self.lock = threading.Lock()
         self.column_limit = 2
         self.row_limit = 2
-        listener_thread = Thread(target=self.listener, daemon=True)
-        listener_thread.start()
+        self.show()
+        self.listener_thread = QThread()
+        self.listener = Listener(self.sock)
+        self.listener.moveToThread(self.listener_thread)
+        self.listener_thread.started.connect(self.listener.run)
+        self.listener.finished.connect(self.listener_thread.quit)
+        self.listener.finished.connect(self.listener.deleteLater)
+        self.listener_thread.finished.connect(self.listener_thread.deleteLater)
+        self.listener.progress.connect(self.new_connection)
+        # Step 6: Start the thread
+        self.listener_thread.start()
 
-    def listener(self):
-        while True:
-            try:
-                conn, addr = self.sock.accept()  # establish connection with client
-                # threading between clients and server
-                connections[addr] = {'conn': conn}
-                new_connection_thread = Thread(target=self.new_connection, args=(addr,), daemon=True)
-                new_connection_thread.start()
-            except OSError:
-                sys.exit()
 
     def new_connection(self, addr):
         global connections
+
         print(f'{addr} connected to the server')
         num = len(connections) - 1
-        connections[addr].update({'comp': eval(f'self.comp{num}')})
+        # connections[addr].update({'comp': eval(f'self.comp{num}')})
+        connections[addr].update({'comp': UI.ComputerScreen(self.widget)})
         connections[addr]['comp'].setObjectName(f"comp{num}")
 
         connections[addr].update(
@@ -96,22 +137,18 @@ class MainWindow(UI.MainWindow_UI):
             for row in range(self.row_limit):
                 for column in range(self.column_limit):
                     if row * self.column_limit + column == num:
-                        if 'tab_view' in windows:
-                            label = UI.ComputerScreen(self.widget)
-                            connections[addr]['comp'] = label
-                            connections[addr]['comp'].setObjectName(f"comp{num}")
-                            connections[addr]['comp'].setToolTip(f"{addr}\'s computer")
-                            connections[addr]['comp'].setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-                                                                    u"border-radius: 5px;}\n"
-                                                                    u"QLabel:hover{\n"
-                                                                    u"border: 5px solid rgb(80, 180, 80);\n"
-                                                                    u"border-radius: 5px;\n"
-                                                                    u"}")
-                            connections[addr]['comp'].setMinimumSize(QSize(240, 135))
-                            connections[addr]['comp'].setMaximumSize(QSize(480, 270))
-                            self.gridLayout_2.addWidget(connections[addr]['comp'], row, column, 1, 1)
-                        else:
-                            self.gridLayout_2.addWidget(connections[addr]['comp'], row, column, 1, 1)
+                        connections[addr]['comp'] = UI.ComputerScreen(self.widget)
+                        connections[addr]['comp'].setObjectName(f"comp{num}")
+                        connections[addr]['comp'].setToolTip(f"{addr}\'s computer")
+                        connections[addr]['comp'].setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                                                                u"border-radius: 5px;}\n"
+                                                                u"QLabel:hover{\n"
+                                                                u"border: 5px solid rgb(80, 180, 80);\n"
+                                                                u"border-radius: 5px;\n"
+                                                                u"}")
+                        connections[addr]['comp'].setMinimumSize(QSize(240, 135))
+                        connections[addr]['comp'].setMaximumSize(QSize(480, 270))
+                        self.gridLayout_2.addWidget(connections[addr]['comp'], row, column, 1, 1)
                         connections[addr]['comp'].clicked.connect(self.tab_control)
         if 'tab_view' in windows:
             windows['main_window'].show()
@@ -129,13 +166,16 @@ class MainWindow(UI.MainWindow_UI):
                 if connections[addr]['comp'].objectName() == event['name']:
                     if connections[addr]['comp'].pixmap():
                         self.tab_view = UI.TabView_UI()
+                        self.tab_view.tabWidget.addTab(connections[addr]['comp'], f'{addr}')
                         for address in connections:
-                            self.tab_view.tabWidget.addTab(connections[address]['comp'], f'{address}')
                             connections[address]['comp'].disconnect()
                             connections[address]['comp'].setMaximumSize(QSize(10000, 10000))
                             connections[address]['comp'].clicked.connect(self.start_controlling)
-                        windows['tab_view'] = self.tab_view
+                            if address == addr:
+                                continue
+                            self.tab_view.tabWidget.addTab(connections[address]['comp'], f'{addr}')
 
+                        windows['tab_view'] = self.tab_view
                         windows['tab_view'].show()
                         windows['main_window'].close()
                     else:
@@ -195,20 +235,21 @@ class MainWindow(UI.MainWindow_UI):
                     self.lock.release()
                     break
                 except KeyError:
+                    self.lock.release()
                     break
             except Exception as e:
                 print(e)
         print('done')
 
     def start_controlling(self, event):
-        # print(f"start_controlling - {event}")
+        print(f"start_controlling - {event}")
         # print(f"threads running - {threading.active_count()}")
         # print(f"connections - {connections}")
         try:
             if event['action'] == "Enter":
-                for addr in connections:
-                    self.lock.acquire()
-                    try:
+                self.lock.acquire()
+                try:
+                    for addr in connections:
                         if connections[addr]['comp'].objectName() == event["name"]:
                             if connections[addr]['control_thread']:
                                 self.lock.release()
@@ -219,9 +260,9 @@ class MainWindow(UI.MainWindow_UI):
                             connections[addr]['control_thread'] = {'thread': Controlling}
                             self.lock.release()
                             return
-                    except KeyError:
-                        break
-                    self.lock.release()
+                except KeyError as e:
+                    print('control error keyError:', e)
+                self.lock.release()
             if event['action'] == "Leave":
                 self.lock.acquire()
                 try:
@@ -234,17 +275,19 @@ class MainWindow(UI.MainWindow_UI):
                             connections[addr]['control_thread']['kb_listener'].join()
                             connections[addr]['control_thread'] = None
                             self.tab_view.back_to_main_btn.clicked.connect(self.group_view)
+                            self.lock.release()
+                            return
                 except KeyError:
                     pass
                 self.lock.release()
-        except TypeError:
+        except TypeError as e:
+            print(f'controlling error - {e}')
             pass
 
     def controlling(self, addr):
         conn = connections[addr]['control_sock']
         address = (addr[0], connections[addr]['control_sock'].getsockname()[1])
         size = connections[addr]['size']
-        # screen = connections[addr]['comp']
 
         def on_move(x, y):
             screen_x = self.tab_view.pos().x() + self.tab_view.tabWidget.pos().x() + 2
@@ -287,8 +330,17 @@ class MainWindow(UI.MainWindow_UI):
                 msg_len = connections[addr]['handle_msg_conn'].recv(64).decode()
                 msg = connections[addr]['handle_msg_conn'].recv(eval(msg_len)).decode()
                 if msg == "ALERT":
-                    print(f"ALERT! ALERT! {addr} is trying to get control over the keyboard")
-                    # self.alert_message(addr)
+                    # dlg = UI.CustomDialog(self, "ALERT!", f"{addr} is trying to take control over the keyboard")
+                    # dlg.exec()
+                    # self.message_thread = QThread()
+                    # self.show_message = ShowMessage(self, addr)
+                    # self.show_message.moveToThread(self.message_thread)
+                    # self.message_thread.started.connect(self.show_message.run)
+                    # self.show_message.finished.connect(self.message_thread.quit)
+                    # self.show_message.finished.connect(self.show_message.deleteLater)
+                    # self.message_thread.finished.connect(self.message_thread.deleteLater)
+                    # self.message_thread.start()
+                    print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
             except ConnectionResetError or OSError:
                 self.lock.acquire()
                 try:
@@ -314,39 +366,23 @@ class MainWindow(UI.MainWindow_UI):
                 self.lock.release()
                 break
 
-    def alert_message(self, addr):
-        # QMessageBox.about(QWidget(), "ALERT",
-        #                   f"ALERT! ALERT! {addr} is trying to get control over the keyboard")
-        # return
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Warning)
-        msg_box.setText(f"{addr} is trying to take control over the keyboard")
-        msg_box.setWindowTitle("ALERT")
-        msg_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-        result = msg_box.exec_()
-
 
 def main():
     ADMIN = socket.socket()
-    ADDR = '192.168.31.233'
+    ADDR = '192.168.31.244'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.123'
     # ADDR = '172.16.5.148'
     ADMIN.bind((ADDR, 12121))
     ADMIN.listen()
     global windows
-    # window = QMainWindow()
     main_window = MainWindow(ADMIN)
     windows['main_window'] = main_window
-    main_window.show()
     print(windows)
-
-    # main_window.setupUi(window)
-    # window.show()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    # listener_thread = Thread(target=listen
+    app.setQuitOnLastWindowClosed(False)
     main()
     sys.exit(app.exec_())

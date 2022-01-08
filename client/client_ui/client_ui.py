@@ -77,6 +77,29 @@ class ComputerScreenTab(QTabWidget):
     #     self.clicked.emit({"name":self.currentWidget().objectName()})
 
 
+class CustomDialog(QDialog):
+    def __init__(self, parent=None, title="", message="", buttons=['Ok']):
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+
+        dialog_buttons = ''
+        for button in buttons:
+            if button == buttons[-1]:
+                dialog_buttons += f'QDialogButtonBox.{button}'
+                break
+            dialog_buttons += f'QDialogButtonBox.{button} | '
+
+        self.buttonBox = QDialogButtonBox(eval(dialog_buttons))
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(QLabel(message))
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+
 class Login_UI(object):
     """
     The login window
