@@ -5,10 +5,14 @@ import datetime
 from model.server_model import *
 import os
 
-SERVER = socket(AF_INET, SOCK_STREAM)  # server socket
-HOST = "127.0.0.1"  # local host IP
-PORT = 42000  # gets an open port
-SERVER.bind((HOST, PORT))  # bind to the port
+sock = socket.socket()
+# ADDR = '192.168.31.186'
+ADDR = '192.168.31.101'
+# ADDR = '172.16.1.123'
+# ADDR = '172.16.5.148'
+sock.bind((ADDR, 12121))
+sock.listen()
+app_windows = {}
 
 BUFSIZE = 64  # Buffer size
 SERVER.listen(5)
@@ -114,3 +118,9 @@ while True:
         new_connection_thread.start()
     except OSError:
         exit()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = Dekstop()
+    ex.show()
+    sys.exit(app.exec())
