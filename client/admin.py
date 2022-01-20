@@ -367,16 +367,9 @@ class MainWindow(UI.MainWindow_UI):
                 break
 
 
-def main():
-    ADMIN = socket.socket()
-    ADDR = '192.168.31.244'
-    # ADDR = '192.168.31.101'
-    # ADDR = '172.16.1.123'
-    # ADDR = '172.16.5.148'
-    ADMIN.bind((ADDR, 12121))
-    ADMIN.listen()
+def main(admin_address):
     global windows
-    main_window = MainWindow(ADMIN)
+    main_window = MainWindow(admin_address)
     windows['main_window'] = main_window
     print(windows)
 

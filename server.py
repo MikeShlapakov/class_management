@@ -5,20 +5,6 @@ import datetime
 from model.server_model import *
 import os
 
-sock = socket.socket()
-# ADDR = '192.168.31.186'
-ADDR = '192.168.31.101'
-# ADDR = '172.16.1.123'
-# ADDR = '172.16.5.148'
-sock.bind((ADDR, 12121))
-sock.listen()
-app_windows = {}
-
-BUFSIZE = 64  # Buffer size
-SERVER.listen(5)
-
-conn_list = {}  # A dictionary of connections (clients) with a var that represent if the client has chat
-
 
 def send_msg(conn, msg=""):
     """
@@ -107,20 +93,24 @@ def new_connection(conn, addr):
     print(f"{addr} left the server")
 
 
-# create_database()
-# signup("admin", '1234', None)
-print(f"Hello world! My name is {HOST} and I'm ready to get clients")
-while True:
-    try:
-        conn, addr = SERVER.accept()  # establish connection with client
-        # threading between clients and server
-        new_connection_thread = threading.Thread(target=new_connection, args=(conn, addr), daemon=True)
-        new_connection_thread.start()
-    except OSError:
-        exit()
-
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = Dekstop()
-    ex.show()
-    sys.exit(app.exec())
+    SERVER = socket()
+    ADDR = '192.168.31.244'
+    # ADDR = '192.168.31.101'
+    # ADDR = '172.16.1.123'
+    # ADDR = '172.16.5.148'
+    SERVER.bind((ADDR, 12121))
+    BUFSIZE = 64  # Buffer size
+    SERVER.listen(5)
+    conn_list = {}  # A dictionary of connections (clients) with a var that represent if the client has chat
+    # create_database()
+    # signup("admin", '1234', None)
+    print(f"Hello world! My name is {ADDR} and I'm ready to get clients")
+    while True:
+        try:
+            conn, addr = SERVER.accept()  # establish connection with client
+            # threading between clients and server
+            new_connection_thread = threading.Thread(target=new_connection, args=(conn, addr), daemon=True)
+            new_connection_thread.start()
+        except OSError:
+            exit()
