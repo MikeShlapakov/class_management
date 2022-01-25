@@ -21,6 +21,52 @@ import admin
 import mouseNkey_logger
 
 
+def send_msg(conn, type="", *args):
+    """
+    Send message to client
+    :param conn: client socket (socket)
+    :param msg: message (string)
+    :return: sent the message (True/False)
+    """
+    global BUFSIZE, conn_list
+    msg = {'type': type}
+    msg.update(*args)
+    print(msg)
+    msg_len = len(json.dumps(msg).encode())
+    try:
+        conn.send((str(msg_len) + ' ' * (BUFSIZE - len(str(msg_len)))).encode())
+        conn.send(msg.encode())
+    except ConnectionResetError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    except ConnectionAbortedError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    print("sent", msg)
+    return True
+
+
+def get_msg(conn):
+    """
+    Get message from the client
+    :param conn: socket (socket)
+    :return: message (string)/ False (bool)
+    """
+    global BUFSIZE
+    try:
+        msg_len = conn.recv(BUFSIZE)
+        if not msg_len or not msg_len.decode():
+            return False
+        msg = conn.recv(int(msg_len.decode())).decode()
+    except ConnectionResetError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    except ConnectionAbortedError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    return json.loads(msg)
+
+
 class Desktop():
     def __init__(self):
         self.main_sock = socket()
@@ -171,11 +217,19 @@ class Desktop():
 def LoginWindow():  # TODO splash screen
 
     def signin(name, password):
-        if name == 'asd':
-            admin.main()
-            print(name, password)
-        else:
-            Desktop()
+        server_sock.connect((ADDR, 12121))
+        send_msg(server_sock, 'command', {'command':'signin', 'username':name, 'password':password})
+        msg = get_msg(server_sock)
+        if not msg:
+            return
+        if msg['type'] == 'message':
+            if msg['data']['msg'] == 'Welcome to MyClass':
+                if msg['data']['priority'] == 'admin':
+                    admin.main()
+                else:
+                    Desktop()
+            else:
+                print(msg['data'])
 
     def signup(name, password):
         if name == 'asd':
@@ -238,6 +292,7 @@ if __name__ == '__main__':
         ADDR = '192.168.31.147'
         # ADDR = '192.168.31.101'
         # ADDR = '172.16.1.123'
+        server_sock = socket()
         msg_sock = None
         app = QApplication(sys.argv)
         windows = {}

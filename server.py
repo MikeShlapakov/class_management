@@ -1,4 +1,5 @@
 from socket import *
+import json
 import threading
 import time
 import datetime
@@ -6,7 +7,7 @@ from model.server_model import *
 import os
 
 
-def send_msg(conn, msg=""):
+def send_msg(conn, type="", *args):
     """
     Send message to client
     :param conn: client socket (socket)
@@ -14,7 +15,8 @@ def send_msg(conn, msg=""):
     :return: sent the message (True/False)
     """
     global BUFSIZE, conn_list
-    msg_len = len(msg.encode())
+    msg = {'type': type}
+    msg_len = len(json.dumps(msg.encode()))
     try:
         conn.send((str(msg_len) + ' ' * (BUFSIZE - len(str(msg_len)))).encode())
         conn.send(msg.encode())
@@ -44,7 +46,7 @@ def get_msg(conn):
         return False
     except ConnectionAbortedError:
         return False
-    return msg
+    return json.loads(msg)
 
 
 def login(command, conn, vars):
@@ -86,6 +88,12 @@ def new_connection(conn, addr):
             break
 
         print(f'{addr}: {msg}')
+
+        commands = {'signin': lambda x: sign_in(msg['data'])}
+        if msg['type'] == 'command':
+            if msg['command'] in ['signin', 'signup']:
+                sign_in(msg['data'])
+
 
     # signout(str(addr))
     conn_list.pop(conn)  # remove connection from the list

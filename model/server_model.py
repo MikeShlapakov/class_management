@@ -44,7 +44,7 @@ def sign_in(username, password, address):
         # update user's address with given address
         cursor.execute('''UPDATE users SET address = ? WHERE username = ?''', (address, username))
         db.commit()
-        return "Welcome to MyColab"
+        return "Welcome to MyClass"
     else:
         return "Check your username or password"
 
