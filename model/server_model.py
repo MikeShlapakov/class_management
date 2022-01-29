@@ -14,15 +14,17 @@ def create_database():
     userID INTEGER PRIMARY KEY,
     username TEXT NOT NULL,
     password TEXT NOT NULL,
-    address TEXT);
+    address TEXT,
+    priority TEXT);
     ''')
     # address - is user's address given when user connected
+    # priority - is user's priority (admin/client)
     db.commit()
 
 
 # ---------------------------------------------------------------------------------------
 # Working with user database
-def sign_in(username, password, address):
+def sign_in(username, password, address, *args):
     """
     Search the for the given user and log him into the server.
     input: 'Bob','1234','(10.1.1.0)'
@@ -49,7 +51,7 @@ def sign_in(username, password, address):
         return "Check your username or password"
 
 
-def sign_up(username, password, address):
+def sign_up(username, password, address, *args):
     """
     Search the for the given user and if there is no such user sign him up to the server.
     input: 'Bob','1234','(10.1.1.0)'
@@ -68,13 +70,13 @@ def sign_up(username, password, address):
         return "This user is already exists"
     else:
         # insert into users table new user
-        cursor.execute(''' INSERT INTO users(username,password, address)
-        VALUES(?,?,?)''', (username, password, address))
+        cursor.execute(''' INSERT INTO users(username,password, address, priority)
+        VALUES(?,?,?,?)''', (username, password, address, 'client'))
         db.commit()
-        return "Welcome to MyColab"
+        return "Welcome to MyClass"
 
 
-def sign_out(address):
+def sign_out(address, *args):
     """
     Sign out user with matching address (by deleting his address).
     input: '(10.1.1.0)'
@@ -92,17 +94,19 @@ def sign_out(address):
     return False
 
 
-def user_get(*args):
+def user_get(needed_var, searched_var_type, searched_var, *args):
     """
-    Find given var from users table with matching another var.
-    input: ['username', 'address', '(10.1.1.0)']
+    Find given variable from users table with matching another variable.
+    input: 'username', 'address', '(10.1.1.0)'
     output: 'Bob'
-    :param args: [needed_var, searched_var_type, searched_var] (list)
+    :param needed_var: needed variable (string)
+    :param searched_var_type: searched variable type (string)
+    :param searched_var: searched variable (string)
     :return: message (can be what you're searching for or an error) (string)
     """
     with sqlite3.connect("./model/Database.db") as db:
         cursor = db.cursor()
-        cursor.execute(f"SELECT {args[0]} FROM users WHERE {args[1]} = ?", (args[2],))
+        cursor.execute(f"SELECT {needed_var} FROM users WHERE {searched_var_type} = ?", (searched_var,))
         result = cursor.fetchall()
         if result:
             return result[0][0]

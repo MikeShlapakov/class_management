@@ -18,6 +18,54 @@ windows = {}
 connections = {}  # {'addr': {'conn': conn,'comp_num':Computer}]}
 
 
+def send_msg(conn, type="", **kwargs):
+    """
+    Send message to connection
+    :param conn: socket (socket)
+    :param type: message type (string)
+    :return: sent the message (True/False)
+    """
+    global BUFSIZE, conn_list
+    msg = {'type': type}
+    msg.update(dict(**kwargs))
+    msg = json.dumps(msg)
+    print(msg)
+    msg_len = len(msg.encode())
+    try:
+        conn.send((str(msg_len) + ' ' * (BUFSIZE - len(str(msg_len)))).encode())
+        conn.send(msg.encode())
+    except ConnectionResetError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    except ConnectionAbortedError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    print("sent", msg)
+    return True
+
+
+def get_msg(conn):
+    """
+    Get message from the connection
+    :param conn: socket (socket)
+    :return: message (string)/ False (bool)
+    """
+    global BUFSIZE
+    try:
+        msg_len = conn.recv(BUFSIZE)
+        if not msg_len or not msg_len.decode():
+            return False
+        msg = conn.recv(int(msg_len.decode())).decode()
+    except ConnectionResetError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    except ConnectionAbortedError:
+        print(f"connection with {conn.getpeername()} lost")
+        return False
+    print("got", msg)
+    return json.loads(msg)
+
+
 def get_open_port():
     """
     Use socket's built in ability to find an open port.
@@ -32,23 +80,30 @@ def get_open_port():
 
 class Listener(QObject):
     finished = pyqtSignal()
-    progress = pyqtSignal(tuple)
+    client_connected = pyqtSignal(tuple)
+    client_disconnected = pyqtSignal()
 
     def __init__(self, sock):
         super().__init__()
         self.sock = sock
+        self.client_sock = socket()
+        self.client_sock.connect((ADDR, 13131))
 
     def run(self):
-        """Accept incoming connections"""
+        """handle incoming messages from the server"""
+        send_msg(self.sock, 'message', msg='admin_connected', address=self.client_sock.getsockname())
         while True:
-            try:
-                conn, addr = self.sock.accept()  # establish connection with client
-                # threading between clients and server
-                connections[addr] = {'conn': conn}
-                self.progress.emit(addr)
-            except OSError:
-                sys.exit()
-            self.finished.emit()
+            msg = get_msg(self.sock)  # get message
+            if not msg:
+                break
+            if msg['type'] == 'message':
+                if msg['msg'] == 'client_connected':
+                    conn, addr = self.client_sock.accept()
+                    connections[addr] = {'conn': conn}
+                    self.client_connected.emit(addr)
+                else:
+                    self.client_disconnected.emit(msg['address'])
+        self.finished.emit()
 
 
 class ShowMessage(QObject):
@@ -85,8 +140,8 @@ class MainWindow(UI.MainWindow_UI):
         self.listener.finished.connect(self.listener_thread.quit)
         self.listener.finished.connect(self.listener.deleteLater)
         self.listener_thread.finished.connect(self.listener_thread.deleteLater)
-        self.listener.progress.connect(self.new_connection)
-        # Step 6: Start the thread
+        self.listener.client_connected.connect(self.new_connection)
+        self.listener.client_disconnected.connect(self.disconnect)
         self.listener_thread.start()
 
 
@@ -103,27 +158,21 @@ class MainWindow(UI.MainWindow_UI):
             {'screen_sharing_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
         port = get_open_port()
         connections[addr]['screen_sharing_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
-        msg_len = len(str(port))
-        connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-        connections[addr]['conn'].send(str(port).encode())
+        send_msg(connections[addr]['conn'], 'message', port=port)
         ScreenSharing = Thread(target=self.screen_sharing, args=(addr,), daemon=True)
         ScreenSharing.start()
 
         connections[addr].update({'control_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
         port = get_open_port()
         connections[addr]['control_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
-        msg_len = len(str(port))
-        connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-        connections[addr]['conn'].send(str(port).encode())
+        send_msg(connections[addr]['conn'], 'message', port=port)
         connections[addr].update({'control_thread': None})
 
         connections[addr].update({'handle_msg_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)})
         port = get_open_port()
         connections[addr]['handle_msg_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
         connections[addr]['handle_msg_sock'].listen(1)
-        msg_len = len(str(port))
-        connections[addr]['conn'].send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-        connections[addr]['conn'].send(str(port).encode())
+        send_msg(connections[addr]['conn'], 'message', port=port)
         connections[addr].update({'handle_msg_conn': connections[addr]['handle_msg_sock'].accept()[0]})
         handle_msg = Thread(target=self.handle_client_msg, args=(addr,), daemon=True)
         handle_msg.start()
@@ -215,7 +264,7 @@ class MainWindow(UI.MainWindow_UI):
             except (ConnectionResetError, OSError):
                 self.lock.acquire()
                 try:
-                    print(f"{addr} disconnected")
+                    print(f"screen_sharing: {addr} disconnected")
                     items = list(connections[addr].keys())
                     for item in items:
                         if item == "comp":
@@ -238,8 +287,8 @@ class MainWindow(UI.MainWindow_UI):
                     self.lock.release()
                     break
             except Exception as e:
-                print(e)
-        print('done')
+                print(f'screen_sharing: {e}')
+        print('screen_sharing done')
 
     def start_controlling(self, event):
         print(f"start_controlling - {event}")
@@ -344,7 +393,7 @@ class MainWindow(UI.MainWindow_UI):
             except ConnectionResetError or OSError:
                 self.lock.acquire()
                 try:
-                    print(f"{addr} disconnected")
+                    print(f"handle_client_msg: {addr} disconnected")
                     items = list(connections[addr].keys())
                     for item in items:
                         if item == "comp":
@@ -366,10 +415,13 @@ class MainWindow(UI.MainWindow_UI):
                 self.lock.release()
                 break
 
+    def disconnect(self, addr):
+        print(f'{addr} disconnected')
 
-def main(admin_address):
+
+def main(server_sock):
     global windows
-    main_window = MainWindow(admin_address)
+    main_window = MainWindow(server_sock)
     windows['main_window'] = main_window
     print(windows)
 
@@ -377,5 +429,10 @@ def main(admin_address):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-    main()
+    ADDR = '192.168.31.131'
+    # ADDR = '192.168.31.101'
+    # ADDR = '172.16.1.23'
+    server_sock = socket()
+    server_sock.connect((ADDR, 12121))
+    main(server_sock)
     sys.exit(app.exec_())
