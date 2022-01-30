@@ -112,6 +112,7 @@ class Listener(QObject):
 
     def run(self):
         """handle incoming messages from the server"""
+        send_msg(self.sock, 'message', msg='client_connected')
         while True:
             msg = get_msg(self.sock)  # get message
             if not msg:
