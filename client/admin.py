@@ -3,6 +3,7 @@ import io
 import threading
 from pynput import mouse, keyboard
 from threading import Thread
+import json
 import time
 import win32api as win
 import numpy
@@ -14,8 +15,9 @@ from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor
 from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
 from client_ui import client_ui as UI
 
-windows = {}
+WINDOWS = {}
 connections = {}  # {'addr': {'conn': conn,'comp_num':Computer}]}
+BUFSIZE = 16  # Buffer size
 
 
 def send_msg(conn, type="", **kwargs):
@@ -81,13 +83,15 @@ def get_open_port():
 class Listener(QObject):
     finished = pyqtSignal()
     client_connected = pyqtSignal(tuple)
-    client_disconnected = pyqtSignal()
+    client_disconnected = pyqtSignal(tuple)
 
     def __init__(self, sock):
         super().__init__()
         self.sock = sock
-        self.client_sock = socket()
-        self.client_sock.connect((ADDR, 13131))
+        self.client_sock = socket.socket()
+        self.client_sock.bind((self.sock.getsockname()[0], 13131))
+        self.client_sock.listen(1)
+        print(self.client_sock)
 
     def run(self):
         """handle incoming messages from the server"""
@@ -98,11 +102,17 @@ class Listener(QObject):
                 break
             if msg['type'] == 'message':
                 if msg['msg'] == 'client_connected':
-                    conn, addr = self.client_sock.accept()
+                    conn, addr = self.client_sock.accept()  # establish connection with client
                     connections[addr] = {'conn': conn}
-                    self.client_connected.emit(addr)
+                    try:
+                        self.client_connected.emit(addr)
+                    except TypeError:
+                        self.client_connected.emit(tuple(addr))
                 else:
-                    self.client_disconnected.emit(msg['address'])
+                    try:
+                        self.client_disconnected.emit(msg['address'])
+                    except TypeError:
+                        self.client_disconnected.emit(tuple(msg['address']))
         self.finished.emit()
 
 
@@ -125,6 +135,109 @@ class ShowMessage(QObject):
         self.finished.emit(button)
 
 
+def screen_sharing(addr):
+    conn = connections[addr]['screen_sharing_sock']
+    # connections[addr]['comp'] = connections[addr]['comp']
+    pixmap = QPixmap()
+    screenSize, address = conn.recvfrom(64)
+    print(screenSize)
+    connections[addr].update({"size": eval(screenSize.decode())})
+    conn.sendto(b'1', address)
+    while True:
+        try:
+            img_len = conn.recv(16)
+            img = b''
+            while eval(img_len.decode()) == 50000:
+                conn.sendto(b'1', address)
+                img += conn.recv(eval(img_len.decode()))
+                print(f'1 {len(img)}')
+                if len(img) == 16:
+                    print('break')
+                    break
+                img_len = conn.recv(16)
+            else:
+                img += conn.recv(eval(img_len.decode()))
+                if len(img) != eval(img_len.decode()):
+                    continue
+                pixmap.loadFromData(img)
+                pixmap.scaled(connections[addr]['comp'].width(), connections[addr]['comp'].height(), Qt.KeepAspectRatio,
+                              Qt.SmoothTransformation)
+                connections[addr]['comp'].setScaledContents(True)
+                connections[addr]['comp'].setPixmap(QPixmap(pixmap))
+                connections[addr]['comp'].setAlignment(Qt.AlignCenter)
+
+        except (ConnectionResetError, OSError):
+            try:
+                print(f"screen_sharing: {addr} disconnected")
+                items = list(connections[addr].keys())
+                for item in items:
+                    if item == "comp":
+                        connections[addr][item].setParent(None)
+                    elif item in ["conn", "screen_sharing_sock", "control_sock"]:
+                        connections[addr][item].close()
+                    elif item == 'control_thread':
+                        if connections[addr][item]:
+                            connections[addr][item]['thread'].join()
+                            connections[addr][item]['mouse_listener'].stop()
+                            connections[addr][item]['mouse_listener'].join()
+                            connections[addr][item]['kb_listener'].stop()
+                            connections[addr][item]['kb_listener'].join()
+                            connections[addr][item] = None
+                        connections[addr].pop(item)
+                connections.pop(addr)
+                break
+            except KeyError:
+                break
+        except Exception as e:
+            print(f'screen_sharing: {e}')
+    print('screen_sharing done')
+
+
+def handle_client_msg(addr):
+    while True:
+        try:
+            msg_len = connections[addr]['handle_msg_conn'].recv(64).decode()
+            msg = connections[addr]['handle_msg_conn'].recv(eval(msg_len)).decode()
+            if msg == "ALERT":
+                # dlg = UI.CustomDialog(self, "ALERT!", f"{addr} is trying to take control over the keyboard")
+                # dlg.exec()
+                # self.message_thread = QThread()
+                # self.show_message = ShowMessage(self, addr)
+                # self.show_message.moveToThread(self.message_thread)
+                # self.message_thread.started.connect(self.show_message.run)
+                # self.show_message.finished.connect(self.message_thread.quit)
+                # self.show_message.finished.connect(self.show_message.deleteLater)
+                # self.message_thread.finished.connect(self.message_thread.deleteLater)
+                # self.message_thread.start()
+                print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
+        except ConnectionResetError or OSError:
+            try:
+                print(f"handle_client_msg: {addr} disconnected")
+                items = list(connections[addr].keys())
+                for item in items:
+                    if item == "comp":
+                        connections[addr][item].setParent(None)
+                    elif item in ["conn", "screen_sharing_sock", "control_sock"]:
+                        connections[addr][item].close()
+                    elif item == 'control_thread':
+                        if connections[addr][item]:
+                            connections[addr][item]['thread'].join()
+                            connections[addr][item]['mouse_listener'].stop()
+                            connections[addr][item]['mouse_listener'].join()
+                            connections[addr][item]['kb_listener'].stop()
+                            connections[addr][item]['kb_listener'].join()
+                            connections[addr][item] = None
+                        connections[addr].pop(item)
+                connections.pop(addr)
+            except KeyError:
+                pass
+            break
+
+
+def disconnect(addr):
+    print(f'{addr} disconnected')
+
+
 class MainWindow(UI.MainWindow_UI):
     def __init__(self, socket):
         super(MainWindow, self).__init__()
@@ -141,9 +254,8 @@ class MainWindow(UI.MainWindow_UI):
         self.listener.finished.connect(self.listener.deleteLater)
         self.listener_thread.finished.connect(self.listener_thread.deleteLater)
         self.listener.client_connected.connect(self.new_connection)
-        self.listener.client_disconnected.connect(self.disconnect)
+        self.listener.client_disconnected.connect(disconnect)
         self.listener_thread.start()
-
 
     def new_connection(self, addr):
         global connections
@@ -159,13 +271,15 @@ class MainWindow(UI.MainWindow_UI):
         port = get_open_port()
         connections[addr]['screen_sharing_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
         send_msg(connections[addr]['conn'], 'message', port=port)
-        ScreenSharing = Thread(target=self.screen_sharing, args=(addr,), daemon=True)
+        ScreenSharing = Thread(target=screen_sharing, args=(addr,), daemon=True)
         ScreenSharing.start()
 
-        connections[addr].update({'control_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+        connections[addr].update({'control_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)})
         port = get_open_port()
         connections[addr]['control_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
+        connections[addr]['control_sock'].listen(1)
         send_msg(connections[addr]['conn'], 'message', port=port)
+        connections[addr].update({'control_conn': connections[addr]['control_sock'].accept()[0]})
         connections[addr].update({'control_thread': None})
 
         connections[addr].update({'handle_msg_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)})
@@ -174,7 +288,7 @@ class MainWindow(UI.MainWindow_UI):
         connections[addr]['handle_msg_sock'].listen(1)
         send_msg(connections[addr]['conn'], 'message', port=port)
         connections[addr].update({'handle_msg_conn': connections[addr]['handle_msg_sock'].accept()[0]})
-        handle_msg = Thread(target=self.handle_client_msg, args=(addr,), daemon=True)
+        handle_msg = Thread(target=handle_client_msg, args=(addr,), daemon=True)
         handle_msg.start()
         connections[addr].update({'handle_msg_thread': handle_msg})
 
@@ -199,9 +313,9 @@ class MainWindow(UI.MainWindow_UI):
                         connections[addr]['comp'].setMaximumSize(QSize(480, 270))
                         self.gridLayout_2.addWidget(connections[addr]['comp'], row, column, 1, 1)
                         connections[addr]['comp'].clicked.connect(self.tab_control)
-        if 'tab_view' in windows:
-            windows['main_window'].show()
-            windows['tab_view'].close()
+        if 'tab_view' in WINDOWS:
+            WINDOWS['main_window'].show()
+            WINDOWS['tab_view'].close()
         print(connections)
         return
 
@@ -224,71 +338,11 @@ class MainWindow(UI.MainWindow_UI):
                                 continue
                             self.tab_view.tabWidget.addTab(connections[address]['comp'], f'{addr}')
 
-                        windows['tab_view'] = self.tab_view
-                        windows['tab_view'].show()
-                        windows['main_window'].close()
+                        WINDOWS['tab_view'] = self.tab_view
+                        WINDOWS['tab_view'].show()
+                        WINDOWS['main_window'].close()
                     else:
                         print("you cant connect to this computer")
-
-    def screen_sharing(self, addr):
-        conn = connections[addr]['screen_sharing_sock']
-        # connections[addr]['comp'] = connections[addr]['comp']
-        pixmap = QPixmap()
-        screenSize, address = conn.recvfrom(64)
-        print(screenSize)
-        connections[addr].update({"size": eval(screenSize.decode())})
-        conn.sendto(b'1', address)
-        while True:
-            try:
-                img_len = conn.recv(16)
-                img = b''
-                while eval(img_len.decode()) == 50000:
-                    conn.sendto(b'1', address)
-                    img += conn.recv(eval(img_len.decode()))
-                    print(f'1 {len(img)}')
-                    if len(img) == 16:
-                        print('break')
-                        break
-                    img_len = conn.recv(16)
-                else:
-                    img += conn.recv(eval(img_len.decode()))
-                    if len(img) != eval(img_len.decode()):
-                        continue
-                    pixmap.loadFromData(img)
-                    pixmap.scaled(connections[addr]['comp'].width(), connections[addr]['comp'].height(), Qt.KeepAspectRatio,
-                                  Qt.SmoothTransformation)
-                    connections[addr]['comp'].setScaledContents(True)
-                    connections[addr]['comp'].setPixmap(QPixmap(pixmap))
-                    connections[addr]['comp'].setAlignment(Qt.AlignCenter)
-
-            except (ConnectionResetError, OSError):
-                self.lock.acquire()
-                try:
-                    print(f"screen_sharing: {addr} disconnected")
-                    items = list(connections[addr].keys())
-                    for item in items:
-                        if item == "comp":
-                            connections[addr][item].setParent(None)
-                        elif item in ["conn", "screen_sharing_sock", "control_sock"]:
-                            connections[addr][item].close()
-                        elif item == 'control_thread':
-                            if connections[addr][item]:
-                                connections[addr][item]['thread'].join()
-                                connections[addr][item]['mouse_listener'].stop()
-                                connections[addr][item]['mouse_listener'].join()
-                                connections[addr][item]['kb_listener'].stop()
-                                connections[addr][item]['kb_listener'].join()
-                                connections[addr][item] = None
-                            connections[addr].pop(item)
-                    connections.pop(addr)
-                    self.lock.release()
-                    break
-                except KeyError:
-                    self.lock.release()
-                    break
-            except Exception as e:
-                print(f'screen_sharing: {e}')
-        print('screen_sharing done')
 
     def start_controlling(self, event):
         print(f"start_controlling - {event}")
@@ -334,8 +388,8 @@ class MainWindow(UI.MainWindow_UI):
             pass
 
     def controlling(self, addr):
-        conn = connections[addr]['control_sock']
-        address = (addr[0], connections[addr]['control_sock'].getsockname()[1])
+        conn = connections[addr]['control_conn']
+        # address = (addr[0], connections[addr]['control_sock'].getsockname()[1])
         size = connections[addr]['size']
 
         def on_move(x, y):
@@ -351,79 +405,34 @@ class MainWindow(UI.MainWindow_UI):
             if y < 0 or height < y:
                 y = 0 if y < 0 else height
             command = str(['MOVE', x, y])
-            conn.sendto(command.encode('utf-8').strip(), address)
+            conn.send(command.encode('utf-8').strip())
 
         def on_click(x, y, button, pressed):
             command = str(['CLICK' if pressed else 'RELEASE', str(button)])
-            conn.sendto(command.encode('utf-8').strip(), address)
+            conn.send(command.encode('utf-8').strip())
 
         def on_scroll(x, y, dx, dy):
             command = str(['SCROLL', dy])
-            conn.sendto(command.encode('utf-8').strip(), address)
+            conn.send(command.encode('utf-8').strip())
 
         mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
         mouse_listener.start()
 
         def on_press(key):
             command = str(['KEY', str(key)])
-            conn.sendto(command.encode('utf-8').strip(), address)
+            conn.send(command.encode('utf-8').strip())
 
         kb_listener = keyboard.Listener(on_press=on_press)
         kb_listener.start()
 
         connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener': kb_listener})
 
-    def handle_client_msg(self, addr):
-        while True:
-            try:
-                msg_len = connections[addr]['handle_msg_conn'].recv(64).decode()
-                msg = connections[addr]['handle_msg_conn'].recv(eval(msg_len)).decode()
-                if msg == "ALERT":
-                    # dlg = UI.CustomDialog(self, "ALERT!", f"{addr} is trying to take control over the keyboard")
-                    # dlg.exec()
-                    # self.message_thread = QThread()
-                    # self.show_message = ShowMessage(self, addr)
-                    # self.show_message.moveToThread(self.message_thread)
-                    # self.message_thread.started.connect(self.show_message.run)
-                    # self.show_message.finished.connect(self.message_thread.quit)
-                    # self.show_message.finished.connect(self.show_message.deleteLater)
-                    # self.message_thread.finished.connect(self.message_thread.deleteLater)
-                    # self.message_thread.start()
-                    print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
-            except ConnectionResetError or OSError:
-                self.lock.acquire()
-                try:
-                    print(f"handle_client_msg: {addr} disconnected")
-                    items = list(connections[addr].keys())
-                    for item in items:
-                        if item == "comp":
-                            connections[addr][item].setParent(None)
-                        elif item in ["conn", "screen_sharing_sock", "control_sock"]:
-                            connections[addr][item].close()
-                        elif item == 'control_thread':
-                            if connections[addr][item]:
-                                connections[addr][item]['thread'].join()
-                                connections[addr][item]['mouse_listener'].stop()
-                                connections[addr][item]['mouse_listener'].join()
-                                connections[addr][item]['kb_listener'].stop()
-                                connections[addr][item]['kb_listener'].join()
-                                connections[addr][item] = None
-                            connections[addr].pop(item)
-                    connections.pop(addr)
-                except KeyError:
-                    pass
-                self.lock.release()
-                break
-
-    def disconnect(self, addr):
-        print(f'{addr} disconnected')
-
 
 def main(server_sock):
-    global windows
+    global WINDOWS
     main_window = MainWindow(server_sock)
-    windows['main_window'] = main_window
-    print(windows)
+    WINDOWS['main_window'] = main_window
+    print(WINDOWS)
 
 
 if __name__ == '__main__':
@@ -432,7 +441,7 @@ if __name__ == '__main__':
     ADDR = '192.168.31.131'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.23'
-    server_sock = socket()
+    server_sock = socket.socket()
     server_sock.connect((ADDR, 12121))
     main(server_sock)
     sys.exit(app.exec_())

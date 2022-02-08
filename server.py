@@ -18,18 +18,14 @@ def send_msg(conn, type="", **kwargs):
     msg = {'type': type}
     msg.update(dict(**kwargs))
     msg = json.dumps(msg)
-    print(msg)
     msg_len = len(msg.encode())
     try:
         conn.send((str(msg_len) + ' ' * (BUFSIZE - len(str(msg_len)))).encode())
         conn.send(msg.encode())
-    except ConnectionResetError:
+    except (ConnectionAbortedError, ConnectionResetError, TimeoutError):
         print(f"{conn.getpeername()} left")
         return False
-    except ConnectionAbortedError:
-        print(f"{conn.getpeername()} left")
-        return False
-    print("sent", msg)
+    print(f"sent {conn.getpeername()}: {msg}")
     return True
 
 
@@ -45,13 +41,10 @@ def get_msg(conn):
         if not msg_len or not msg_len.decode():
             return False
         msg = conn.recv(int(msg_len.decode())).decode()
-    except ConnectionResetError:
+    except (ConnectionAbortedError, ConnectionResetError, TimeoutError):
         print(f"{conn.getpeername()} left")
         return False
-    except ConnectionAbortedError:
-        print(f"{conn.getpeername()} left")
-        return False
-    print("got", msg)
+    print(f"got {conn.getpeername()}: {msg}")
     return json.loads(msg)
 
 
@@ -67,8 +60,8 @@ def login(command, conn, username, password):
     msg = str(sign_in(username, password, str(addr))) if command == "signin" \
         else str(sign_up(username, password, str(addr)))
     if msg == "Welcome to MyClass":
-        send_msg(conn, 'message', msg=msg, priority=user_get('priority', 'address', addr))
-        conn_list[conn].update({'priority': user_get('priority', 'address', addr)})
+        send_msg(conn, 'message', msg=msg, priority=user_get('priority', 'address', str(addr)))
+        conn_list[conn].update({'priority': user_get('priority', 'address', str(addr))})
         return
     send_msg(conn, 'error', msg=msg)
     return
@@ -115,19 +108,19 @@ def new_connection(conn, addr):
                     if conn_list[connection].get('priority', 'none') == 'admin':
                         send_msg(connection, 'message', msg='client_connected')
                         conn_list[conn]['connected_to_admin'] = True
-                        send_msg(conn, 'message', msg='admin_connected', address=(conn_list[connection].getpeername()[0], 13131))
+                        send_msg(conn, 'message', msg='admin_connected', address=(connection.getpeername()[0], 13131))
 
     sign_out(str(addr))
     if conn_list[conn].get('priority', 'none') == 'admin':
         for connection in conn_list:
-            if connection == conn:
+            if connection == conn or not conn_list[connection]['connected_to_admin']:
                 continue
             send_msg(connection, 'message', msg='admin_disconnected')
             conn_list[connection]['connected_to_admin'] = False
     elif conn_list[conn].get('priority', 'none') == 'client':
         for connection in conn_list:
             if conn_list[connection].get('priority', 'none') == 'admin':
-                send_msg(connection, 'message', msg='client_disconnected', address=conn_list[conn].getpeername())
+                send_msg(connection, 'message', msg='client_disconnected', address=conn.getpeername())
     conn_list.pop(conn)  # remove connection from the list
     conn.close()
 

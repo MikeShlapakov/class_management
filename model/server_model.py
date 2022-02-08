@@ -41,7 +41,7 @@ def sign_in(username, password, address, *args):
     result = cursor.fetchall()
     if result:
         # if user already has address it means the user is already logged in
-        if result[0][-1] is not None:
+        if result[0][3] is not None:
             return "This user is already in"
         # update user's address with given address
         cursor.execute('''UPDATE users SET address = ? WHERE username = ?''', (address, username))

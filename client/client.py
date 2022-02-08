@@ -1,4 +1,4 @@
-from socket import *
+import socket
 import numpy as np
 from PIL import Image
 import win32gui, win32ui, win32con
@@ -7,7 +7,7 @@ import sys
 import win32api
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QLineEdit
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import QRect, Qt, QThread
+from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
 from pynput import mouse, keyboard
 from pynput.mouse import Button
 from pynput.keyboard import Key
@@ -119,8 +119,11 @@ class Listener(QObject):
                 break
             if msg['type'] == 'message':
                 if msg['msg'] == 'admin_connected':
-                    self.admin_connected.emit(msg['address'])
-                else:
+                    try:
+                        self.admin_connected.emit(msg['address'])
+                    except TypeError:
+                        self.admin_connected.emit(tuple(msg['address']))
+                elif msg['msg'] == 'admin_disconnected':
                     self.disconnect.emit()
         self.finished.emit()
 
@@ -225,15 +228,14 @@ def controller():
 def Connect(addr):
     global SOCKETS
 
-    SOCKETS['admin_sock'] = socket(family=AF_INET, type=SOCK_STREAM)
+    SOCKETS['admin_sock'] = socket.socket()
     SOCKETS['admin_sock'].connect(addr)
 
     msg = get_msg(SOCKETS['admin_sock'])
     if not msg:
         return
-    screen_saring_port = eval(msg['port'])
-    print(screen_saring_port)
-    SOCKETS['screen_sharing_sock'] = socket(family=AF_INET, type=SOCK_DGRAM)
+    screen_saring_port = msg['port']
+    SOCKETS['screen_sharing_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     SOCKETS['screen_sharing_sock'].connect((addr[0], screen_saring_port))
     screansharing = Thread(target=send_screenshot, daemon=True)
     screansharing.start()
@@ -241,19 +243,17 @@ def Connect(addr):
     msg = get_msg(SOCKETS['admin_sock'])
     if not msg:
         return
-    control_port = eval(msg['port'])
-    print(control_port)
-    SOCKETS['control_sock'] = socket(family=AF_INET, type=SOCK_DGRAM)
-    SOCKETS['control_sock'].bind((addr[0], control_port))
+    control_port = msg['port']
+    SOCKETS['control_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+    SOCKETS['control_sock'].connect((addr[0], control_port))
     controling = Thread(target=controller, daemon=True)
     controling.start()
 
     msg = get_msg(SOCKETS['admin_sock'])
     if not msg:
         return
-    send_msg_port = eval(msg['port'])
-    print(send_msg_port)
-    SOCKETS['msg_sock'] = socket(family=AF_INET, type=SOCK_STREAM)
+    send_msg_port = msg['port']
+    SOCKETS['msg_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
     SOCKETS['msg_sock'].connect((addr[0], send_msg_port))
 
 
@@ -265,48 +265,57 @@ def Disconnect():
         SOCKETS[sock].close()
 
 
-def LoginWindow():  # TODO splash screen
+class LoginWindow(QMainWindow):  # TODO splash screen
+    def __init__(self, parent=None):
+        global WINDOWS
+        super().__init__(parent)
+        self.ui = UI.Login_UI()
+        self.ui.setupUi(self)
+        self.show()
+        WINDOWS['login'] = self
+        self.ui.signin_btn.clicked.connect(lambda: self.login('signin', self.ui.username_entry.text(), self.ui.password_entry.text()))
+        self.ui.signup_btn.clicked.connect(lambda: self.login('signup', self.ui.username_entry.text(), self.ui.password_entry.text()))
 
-    def login(command, name, password):
+    def login_as_client(self):
+        # print("client")
+        self.showMinimized()
+        self.listener_thread = QThread()
+        self.listener = Listener(SOCKETS['server_sock'])
+        self.listener.moveToThread(self.listener_thread)
+        self.listener_thread.started.connect(self.listener.run)
+        self.listener.finished.connect(self.listener_thread.quit)
+        self.listener.finished.connect(self.listener.deleteLater)
+        self.listener_thread.finished.connect(self.listener_thread.deleteLater)
+        self.listener.admin_connected.connect(Connect)
+        self.listener.disconnect.connect(Disconnect)
+        self.listener_thread.start()
+
+    def login(self, command, name, password):
         global SOCKETS
         if name and password:
-            SOCKETS['server_sock'] = socket()
+            SOCKETS['server_sock'] = socket.socket()
             SOCKETS['server_sock'].connect((ADDR, 12121))
             print('connected')
             if send_msg(SOCKETS['server_sock'], 'command', command=command, username=name, password=password):
                 msg = get_msg(SOCKETS['server_sock'])
                 if not msg:
+                    SOCKETS['server_sock'].close()
+                    print('left login')
                     return
                 if msg['type'] == 'message':
                     if msg['priority'] == 'admin':
-                        print("admin")
-                        # admin.main()
+                        # print("admin")
+                        admin.main(SOCKETS['server_sock'])
                     else:
-                        # print("client")
-                        window.showMinimized()
-                        listener_thread = QThread()
-                        listener = Listener(SOCKETS['server_sock'])
-                        listener.moveToThread(listener_thread)
-                        listener_thread.started.connect(listener.run)
-                        listener.finished.connect(listener_thread.quit)
-                        listener.finished.connect(listener.deleteLater)
-                        listener_thread.finished.connect(listener_thread.deleteLater)
-                        listener.admin_connected.connect(Desktop)
-                        listener.disconnect.connect(Disconnect)
-                        listener_thread.start()
+                        self.login_as_client()
                 elif msg['type'] == 'error':
-                    dlg = UI.CustomDialog(window, 'ERROR', msg['msg'])
+                    dlg = UI.CustomDialog(self, 'ERROR', msg['msg'])
                     dlg.exec_()
-            SOCKETS['server_sock'].close()
-            print('left login')
-
-    ui = UI.Login_UI()
-    window = QMainWindow()
-    WINDOWS['login'] = window
-    ui.setupUi(window)
-    window.show()
-    ui.signin_btn.clicked.connect(lambda: login('signin', ui.username_entry.text(), ui.password_entry.text()))
-    ui.signup_btn.clicked.connect(lambda: login('signup', ui.username_entry.text(), ui.password_entry.text()))
+                    SOCKETS['server_sock'].close()
+                    print('left login')
+            else:
+                SOCKETS['server_sock'].close()
+                print('left login')
 
 
 def hookProc(nCode, wParam, lParam):
