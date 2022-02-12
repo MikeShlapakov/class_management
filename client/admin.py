@@ -404,23 +404,23 @@ class MainWindow(UI.MainWindow_UI):
             y = round((y - screen_y) / y_ration)
             if y < 0 or height < y:
                 y = 0 if y < 0 else height
-            command = str(['MOVE', x, y])
-            conn.send(command.encode('utf-8').strip())
+            command = ['MOVE', x, y]
+            send_msg(conn, 'command', command=command.encode('utf-8').strip())
 
         def on_click(x, y, button, pressed):
-            command = str(['CLICK' if pressed else 'RELEASE', str(button)])
-            conn.send(command.encode('utf-8').strip())
+            command = ['CLICK' if pressed else 'RELEASE', str(button)]
+            send_msg(conn, 'command', command=command.encode('utf-8').strip())
 
         def on_scroll(x, y, dx, dy):
-            command = str(['SCROLL', dy])
-            conn.send(command.encode('utf-8').strip())
+            command = ['SCROLL', dy]
+            send_msg(conn, 'command', command=command.encode('utf-8').strip())
 
         mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
         mouse_listener.start()
 
         def on_press(key):
-            command = str(['KEY', str(key)])
-            conn.send(command.encode('utf-8').strip())
+            command = ['KEY', str(key)]
+            send_msg(conn, 'command', command=command.encode('utf-8').strip())
 
         kb_listener = keyboard.Listener(on_press=on_press)
         kb_listener.start()

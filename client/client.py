@@ -1,10 +1,11 @@
+import sys
 import socket
 import numpy as np
 from PIL import Image
-import win32gui, win32ui, win32con
+import win32api, win32gui, win32ui, win32con, atexit
+from ctypes import *
+from ctypes.wintypes import DWORD, WPARAM, LPARAM
 from threading import Thread
-import sys
-import win32api
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QLineEdit
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
@@ -14,12 +15,9 @@ from pynput.keyboard import Key
 import time
 import io
 import json
-import ctypes
-from ctypes import *
 import cv2
 from client_ui import client_ui as UI
 import admin
-import mouseNkey_logger
 
 
 def send_msg(conn, type="", **kwargs):
@@ -178,20 +176,20 @@ def controller():
 
     def on_click(button):
         ms.press(Button.left if button.find('left') else Button.right)
-        msg = sock.recv(256).decode()
+        msg = get_msg(sock)
         try:
-            command = eval(msg)
+            command = msg['command']
         except Exception as e:
-            print(e)
+            print(f'RELEASE caught an error: {e}. {msg}')
         else:
             while command[0] != "RELEASE":
                 func = commands[command[0]]
                 func(command)
-                msg = sock.recv(256).decode()
+                msg = get_msg(sock)
                 try:
-                    command = eval(msg)
+                    command = msg['command']
                 except Exception as e:
-                    print(e)
+                    print(f'RELEASE2 caught an error: {e}. {msg}')
         ms.release(Button.left if button.find('left') else Button.right)
 
     def on_scroll(scroll):
@@ -209,11 +207,14 @@ def controller():
                     "KEY": lambda arr: on_key(arr[1])}
 
         while True:
-            msg = sock.recv(256).decode()
+            msg = get_msg(sock)
+            if not msg:
+                return
+            print(msg)
             try:
-                command = eval(msg)
+                command = msg['command']
             except Exception as e:
-                print(f'control caught an error: {e}')
+                print(f'control caught an error: {e}. {msg}')
                 pass
             else:
                 func = commands[command[0]]
@@ -225,8 +226,19 @@ def controller():
     return
 
 
+def block_input(block):
+    global BLOCK_INPUT, WINDOWS
+    if block:
+        BLOCK_INPUT = True
+        return
+    BLOCK_INPUT = False
+    return
+
+
 def Connect(addr):
     global SOCKETS
+
+    block_input(True)
 
     SOCKETS['admin_sock'] = socket.socket()
     SOCKETS['admin_sock'].connect(addr)
@@ -259,6 +271,7 @@ def Connect(addr):
 
 def Disconnect():
     global SOCKETS
+    block_input(False)
     for sock in SOCKETS:
         if sock == 'server_sock':
             continue
@@ -318,35 +331,70 @@ class LoginWindow(QMainWindow):  # TODO splash screen
                 print('left login')
 
 
-def hookProc(nCode, wParam, lParam):
-    # if mouseNkey_logger.user32.GetKeyState(win32con.VK_CONTROL) & 0x8000:
-    #     print("\nCtrl pressed, call uninstallHook()")
-    #     KeyLogger.uninstalHookProc()
-    #     return 0
-    if nCode == win32con.HC_ACTION and wParam == win32con.WM_KEYDOWN:
-        kb = mouseNkey_logger.KBDLLHOOKSTRUCT.from_address(lParam)
-        if kb.flags == 0 or kb.flags == 1:
-            pass
-            # start_hook_keyboard = Thread(target=set_hook_keyboard, daemon=True)
-            # start_hook_keyboard.start()
-        elif kb.flags == 16:
-            pass
-            # if kb.vkCode in mouseNkey_logger.VK_CODE.values():
-            #     print(list(mouseNkey_logger.VK_CODE.keys())[list(mouseNkey_logger.VK_CODE.values()).index(kb.vkCode)])
-            # print(mouseNkey_logger.VK_CODE[kb.vkCode])
-        # print(kb.vkCode)
-        # return {'vkCode': kb.vkCode, 'scanCode': kb.scanCode, 'flags': kb.flags, 'time': kb.time, 'dwExtraInfo': kb.dwExtraInfo}
-    return mouseNkey_logger.user32.CallNextHookEx(KeyLogger.hooked, nCode, wParam, lParam)
+class MSLLHOOKSTRUCT(Structure): _fields_ = [
+    ('x', DWORD),
+    ('y', DWORD),
+    ('mouseData', DWORD),
+    ('flags', DWORD),
+    ('time', DWORD),
+    ('dwExtraInfo', DWORD)]
 
 
-def set_hook_keyboard():
-    time.sleep(0.0001)
-    win32api.keybd_event(0x11, 0, 0, 0)
-    win32api.keybd_event(0x5A, 0, 0, 0)
-    win32api.keybd_event(0x5A, 0, win32con.KEYEVENTF_KEYUP, 0)
-    win32api.keybd_event(0x11, 0, win32con.KEYEVENTF_KEYUP, 0)
-    global msg_sock
-    alert(msg_sock)
+class KBDLLHOOKSTRUCT(Structure): _fields_ = [
+    ('vkCode', DWORD),
+    ('scanCode', DWORD),
+    ('flags', DWORD),
+    ('time', DWORD),
+    ('dwExtraInfo', DWORD)]
+
+
+def mouse_and_keyboard_hook():
+    """
+    mouse and keyboard event receiver. This is a blocking call.
+    """
+    # Adapted from http://www.hackerthreads.org/Topic-42395
+
+    def mouse_handler(nCode, wParam, lParam):
+        """
+        Processes a low level Windows mouse event.
+        """
+        global BLOCK_INPUT
+        if nCode == win32con.HC_ACTION:
+            ms = MSLLHOOKSTRUCT.from_address(lParam)
+            if ms.flags == 1 or not BLOCK_INPUT:
+                # call the next hook unless you want to block it
+                return windll.user32.CallNextHookEx(ms_hook, nCode, wParam, lParam)
+        # print(f"pt - {[ms.x, ms.y]}, mouseData - {ms.mouseData}, flags - {ms.flags}")
+
+    def keyboard_handler(nCode, wParam, lParam):
+        """
+        Processes a low level Windows keyboard event.
+        """
+        global BLOCK_INPUT
+        if nCode == win32con.HC_ACTION:
+            kb = KBDLLHOOKSTRUCT.from_address(lParam)
+            if kb.flags == 16 or kb.flags == 144 or not BLOCK_INPUT:
+                # call the next hook unless you want to block it
+                return windll.user32.CallNextHookEx(kb_hook, nCode, wParam, lParam)
+        # print(f"vkCode - {kb.vkCode}, scanCode - {kb.scanCode}, flags - {kb.flags}")
+
+    # Our low level handler signature.
+    HOOKPROC = WINFUNCTYPE(HRESULT, c_int, WPARAM, LPARAM)
+    # Convert the Python handler into C pointer.
+    ms_pointer = HOOKPROC(mouse_handler)
+    kb_pointer = HOOKPROC(keyboard_handler)
+
+    # Hook both mouse keyboard events
+    ms_hook = windll.user32.SetWindowsHookExA(win32con.WH_MOUSE_LL, ms_pointer, 0, 0)
+    kb_hook = windll.user32.SetWindowsHookExA(win32con.WH_KEYBOARD_LL, kb_pointer, 0, 0)
+
+    # Register to remove the hook when the interpreter exits. Unfortunately a
+    # try/finally block doesn't seem to work here.
+    atexit.register(windll.user32.UnhookWindowsHookEx, ms_hook)
+    atexit.register(windll.user32.UnhookWindowsHookEx, kb_hook)
+
+    while True:
+        msg = win32gui.GetMessage(None, 0, 0)
 
 
 def alert(sock):
@@ -358,12 +406,8 @@ def alert(sock):
 
 
 if __name__ == '__main__':
-    # HOOKPROC = WINFUNCTYPE(HRESULT, c_int, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)
-    # KeyLogger = mouseNkey_logger.KeyLogger()
-    # pointer = HOOKPROC(hookProc)
-    # if KeyLogger.installHookProc(pointer):
-    #     print("Hook installed")
-    ADDR = '192.168.31.131'
+    BLOCK_INPUT = False
+    ADDR = '192.168.66.148'
     # ADDR = '192.168.31.101'
     # ADDR = '172.16.1.23'
     BUFSIZE = 16  # Buffer size
@@ -372,10 +416,10 @@ if __name__ == '__main__':
                'screen_sharing_sock': None,
                'control_sock': None,
                'msg_sock': None}
-    THREADS = {'screen_sharing_thread':None, 'control_thread':None, 'msg_thread': None}
+    THREADS = {'hook_thread': Thread(target=mouse_and_keyboard_hook, daemon=True), 'screen_sharing_thread': None,
+               'control_thread': None, 'msg_thread': None}
+    THREADS['hook_thread'].start()
     app = QApplication(sys.argv)
     WINDOWS = {}
     LoginWindow()
     sys.exit(app.exec_())
-    # else:
-    #     print("Hook not installed")
