@@ -364,6 +364,7 @@ def mouse_and_keyboard_hook():
             if ms.flags == 1 or not BLOCK_INPUT:
                 # call the next hook unless you want to block it
                 return windll.user32.CallNextHookEx(ms_hook, nCode, wParam, lParam)
+        return 1
         # print(f"pt - {[ms.x, ms.y]}, mouseData - {ms.mouseData}, flags - {ms.flags}")
 
     def keyboard_handler(nCode, wParam, lParam):
@@ -376,6 +377,7 @@ def mouse_and_keyboard_hook():
             if kb.flags == 16 or kb.flags == 144 or not BLOCK_INPUT:
                 # call the next hook unless you want to block it
                 return windll.user32.CallNextHookEx(kb_hook, nCode, wParam, lParam)
+        return 1
         # print(f"vkCode - {kb.vkCode}, scanCode - {kb.scanCode}, flags - {kb.flags}")
 
     # Our low level handler signature.
