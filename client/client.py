@@ -212,6 +212,9 @@ def controller():
                 return
             print(msg)
             try:
+                if msg['type'] == 'block_input':
+                    block_input(msg['block_input'])
+                    continue
                 command = msg['command']
             except Exception as e:
                 print(f'control caught an error: {e}. {msg}')
@@ -409,9 +412,9 @@ def alert(sock):
 
 if __name__ == '__main__':
     BLOCK_INPUT = False
-    ADDR = '192.168.66.148'
+    # ADDR = '192.168.66.148'
     # ADDR = '192.168.31.101'
-    # ADDR = '172.16.1.23'
+    ADDR = '172.16.1.163'
     BUFSIZE = 16  # Buffer size
     SOCKETS = {'server_sock': None,
                'admin_sock': None,

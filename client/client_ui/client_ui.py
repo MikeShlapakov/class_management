@@ -3,6 +3,23 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 
+class CustomButton(QPushButton):
+    def __init__(self, parent=None, name='Button'):
+        super(CustomButton, self).__init__(parent)
+        self.setText(name)
+        self.setFont(QFont("Calibri", 14, QFont.Bold))
+        self.setCursor(QCursor(Qt.PointingHandCursor))
+        self.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
+                                            "border-radius: 5px;\n"
+                                            "color: rgb(30, 30, 40);\n"
+                                            "padding-left: 20px;\n"
+                                            "padding-right: 20px;\n"
+                                            "background-color: rgb(65, 65, 90);}"
+                                            "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
+                                            "color:rgb(180, 180, 180);\n"
+                                            "background-color: rgb(80, 80, 120);}")
+
+
 class ComputerScreen(QLabel):
     clicked = pyqtSignal(dict)
 
@@ -70,11 +87,11 @@ class ComputerScreenTab(QTabWidget):
                                      u"QTabBar::tab:selected { border-color: rgb(30,30,40); border-bottom-color:rgb(40,40,50); }"
                                      u"QTabBar::tab:!selected { margin-top: 2px;}")
 
-    # def mousePressEvent(self, *args, **kwargs):
-    #     self.clicked.emit({"name":self.currentWidget().objectName()})
-    #
     # def enterEvent(self, event):
-    #     self.clicked.emit({"name":self.currentWidget().objectName()})
+    #     self.clicked.emit({"name": self.objectName(), "action":"Enter"})
+    #
+    # def leaveEvent(self, *args, **kwargs):
+    #     self.clicked.emit({"name": self.objectName(), "action":"Leave"})
 
 
 class CustomDialog(QDialog):
@@ -352,12 +369,6 @@ class MainWindow_UI(QMainWindow):
         self.gridLayout_2 = QGridLayout(self.widget)
         self.gridLayout_2.setObjectName(u"gridLayout_2")
 
-        # =====================================================================
-        self.comp0 = ComputerScreen(self.widget)
-        self.comp1 = ComputerScreen(self.widget)
-        self.comp2 = ComputerScreen(self.widget)
-        self.comp3 = ComputerScreen(self.widget)
-        # =====================================================================
         self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
 
         self.setCentralWidget(self.centralwidget)
@@ -398,22 +409,8 @@ class TabView_UI(QMainWindow):
 
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.back_to_main_btn = QPushButton(self.centralwidget)
-        self.back_to_main_btn.setObjectName(u"back_to_main_btn")
-        self.back_to_main_btn.setText(u"VIEW ALL")
-        self.back_to_main_btn.setFont(QFont("Calibri", 14, QFont.Bold))
-        self.back_to_main_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        self.back_to_main_btn.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
-                                            "border-radius: 5px;\n"
-                                            "color: rgb(30, 30, 40);\n"
-                                            "padding-left: 20px;\n"
-                                            "padding-right: 20px;\n"
-                                            "background-color: rgb(65, 65, 90);}"
-                                            "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
-                                            "color:rgb(180, 180, 180);\n"
-                                            "background-color: rgb(80, 80, 120);}")
 
-        self.verticalLayout.addWidget(self.back_to_main_btn)
+        # self.verticalLayout.addWidget(self.back_to_main_btn)
 
         self.tabWidget = ComputerScreenTab(self.centralwidget)
 
@@ -425,15 +422,75 @@ class TabView_UI(QMainWindow):
 
         self.setCentralWidget(self.centralwidget)
 
+        self._createActions()
+        self._createToolBars()
+        self._createContextMenu()
+
         QMetaObject.connectSlotsByName(self)
         # self.showMaximized()
 
     # setupUi
+    def _createActions(self):
+        # File actions
+        self.newAction = QAction(self)
+        self.newAction.setText("&New")
+        # # self.newAction.setIcon(QIcon(":file-new.svg"))
+        self.blockInputAction = QAction(QIcon("./block.jpg"), "&Block Input", self)
+        self.unblockInputAction = QAction(QIcon("./unblock.jpg"), "&Unblock Input", self)
+        self.saveAction = QAction(QIcon("save.jpg"), "&Save", self)
+        self.openAction = QAction(QIcon("file-open.jpg"), "&Open...", self)
+        self.saveAction = QAction(QIcon("save.jpg"), "&Save", self)
+        # self.exitAction = QAction("&Exit", self)
+        # self.newButton = CustomButton(self.centralwidget, "NEW")
+        self.blockInputButton = CustomButton(self.centralwidget, "BLOCK INPUT")
+        self.unblockInputButton = CustomButton(self.centralwidget, "UNBLOCK INPUT")
+        # self.openButton = CustomButton(self.centralwidget, "OPEN")
+        # self.saveButton = CustomButton(self.centralwidget, "SAVE")
+        # self.exitButton = CustomButton(self.centralwidget, "EXIT")
+        self.back_to_main_btn = CustomButton(self.centralwidget, "VIEW ALL")
+
+
+        # # Edit actions
+        # self.copyAction = QAction(QIcon(":edit-copy.svg"), "&Copy", self)
+        # self.pasteAction = QAction(QIcon(":edit-paste.svg"), "&Paste", self)
+        # self.cutAction = QAction(QIcon(":edit-cut.svg"), "C&ut", self)
+
+
+    def _createToolBars(self):
+        # File toolbar
+        fileToolBar = self.addToolBar("Tools")
+        # fileToolBar.addAction(self.blockInputAction)
+        # fileToolBar.addAction(self.unblockInputAction)
+        # fileToolBar.addAction(self.saveAction)
+        # fileToolBar.addAction(self.exitAction)
+        # fileToolBar.addWidget(self.newButton)
+        # fileToolBar.addWidget(self.openButton)
+        # fileToolBar.addWidget(self.saveButton)
+        # fileToolBar.addWidget(self.exitButton)
+        fileToolBar.addWidget(self.blockInputButton)
+        fileToolBar.addWidget(self.unblockInputButton)
+        fileToolBar.addWidget(self.back_to_main_btn)
+        # Edit toolbar
+        # editToolBar = QToolBar("Edit", self)
+        # self.addToolBar(editToolBar)
+        # editToolBar.addAction(self.copyAction)
+        # editToolBar.addAction(self.pasteAction)
+        # editToolBar.addAction(self.cutAction)
+
+    def _createContextMenu(self):
+        # Setting contextMenuPolicy
+        self.centralwidget.setContextMenuPolicy(Qt.ActionsContextMenu)
+        # Populating the widget with actions
+        self.centralwidget.addAction(self.blockInputAction)
+        self.centralwidget.addAction(self.unblockInputAction)
+        self.centralwidget.addAction(self.newAction)
+        self.centralwidget.addAction(self.openAction)
+        self.centralwidget.addAction(self.saveAction)
+
 
     def retranslateUi(self, Window):
         Window.setWindowTitle(QCoreApplication.translate("TabWindow", u"My Class", None))
         # retranslateUi
-
 
 
 if __name__ == "__main__":
@@ -444,7 +501,7 @@ if __name__ == "__main__":
     # ui = MainWindow_UI()
     # ui.setupUi(MainWindow)
     # MainWindow.show()
-    e = MainWindow_UI()
-    # e = TabView_UI()
+    # e = ComputerScreenTab()
+    e = TabView_UI()
     e.show()
     sys.exit(app.exec_())

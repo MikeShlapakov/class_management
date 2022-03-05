@@ -31,7 +31,7 @@ def send_msg(conn, type="", **kwargs):
     msg = {'type': type}
     msg.update(dict(**kwargs))
     msg = json.dumps(msg)
-    print(msg)
+    # print(msg)
     msg_len = len(msg.encode())
     try:
         conn.send((str(msg_len) + ' ' * (BUFSIZE - len(str(msg_len)))).encode())
@@ -42,7 +42,7 @@ def send_msg(conn, type="", **kwargs):
     except ConnectionAbortedError:
         print(f"connection with {conn.getpeername()} lost")
         return False
-    print("sent", msg)
+    print("admin sent", msg)
     return True
 
 
@@ -64,7 +64,7 @@ def get_msg(conn):
     except ConnectionAbortedError:
         print(f"connection with {conn.getpeername()} lost")
         return False
-    print("got", msg)
+    print(f"got from {conn.getpeername()}:", msg)
     return json.loads(msg)
 
 
@@ -133,6 +133,13 @@ class ShowMessage(QObject):
             f"{self.addr} is trying to take control over the keyboard",
         )
         self.finished.emit(button)
+
+
+def block_input(comp, block):
+    for addr in connections:
+        if connections[addr]['comp'] == comp:
+            send_msg(connections[addr]['control_conn'], 'block_input', block_input=block)
+            connections[addr]['block_input'] = block
 
 
 def screen_sharing(addr):
@@ -262,7 +269,6 @@ class MainWindow(UI.MainWindow_UI):
 
         print(f'{addr} connected to the server')
         num = len(connections) - 1
-        # connections[addr].update({'comp': eval(f'self.comp{num}')})
         connections[addr].update({'comp': UI.ComputerScreen(self.widget)})
         connections[addr]['comp'].setObjectName(f"comp{num}")
 
@@ -291,6 +297,8 @@ class MainWindow(UI.MainWindow_UI):
         handle_msg = Thread(target=handle_client_msg, args=(addr,), daemon=True)
         handle_msg.start()
         connections[addr].update({'handle_msg_thread': handle_msg})
+
+        connections[addr].update({'block_input': False})
 
         self.group_view()
 
@@ -330,13 +338,15 @@ class MainWindow(UI.MainWindow_UI):
                     if connections[addr]['comp'].pixmap():
                         self.tab_view = UI.TabView_UI()
                         self.tab_view.tabWidget.addTab(connections[addr]['comp'], f'{addr}')
+                        self.tab_view.blockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), True))
+                        self.tab_view.unblockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), False))
+
                         for address in connections:
                             connections[address]['comp'].disconnect()
                             connections[address]['comp'].setMaximumSize(QSize(10000, 10000))
                             connections[address]['comp'].clicked.connect(self.start_controlling)
                             if address == addr:
                                 continue
-                            self.tab_view.tabWidget.addTab(connections[address]['comp'], f'{addr}')
 
                         WINDOWS['tab_view'] = self.tab_view
                         WINDOWS['tab_view'].show()
@@ -391,6 +401,8 @@ class MainWindow(UI.MainWindow_UI):
         conn = connections[addr]['control_conn']
         # address = (addr[0], connections[addr]['control_sock'].getsockname()[1])
         size = connections[addr]['size']
+        def get_vk(key):
+            return key.vk if hasattr(key, 'vk') else key.value.vk
 
         def on_move(x, y):
             screen_x = self.tab_view.pos().x() + self.tab_view.tabWidget.pos().x() + 2
@@ -419,10 +431,31 @@ class MainWindow(UI.MainWindow_UI):
         mouse_listener.start()
 
         def on_press(key):
-            command = ['KEY', str(key)]
-            send_msg(conn, 'command', command=command)
+            hotkey.add(get_vk(key))
+            for combo in hotkeys:
+                if all([get_vk(k) in hotkey for k in combo]):
+                    if connections[addr]['block_input']:
+                        print('block off')
+                        send_msg(conn, 'block_input', block_input=False)
+                        connections[addr]['block_input'] = False
+                    else:
+                        print('block on')
+                        send_msg(conn, 'block_input', block_input=True)
+                        connections[addr]['block_input'] = True
+                else:
+                    command = ['KEY', str(key)]
+                    send_msg(conn, 'command', command=command)
 
-        kb_listener = keyboard.Listener(on_press=on_press)
+        def on_release(key):
+            hotkey.remove(get_vk(key))
+        # print(keyboard.KeyCode(vk=66))
+        # print(get_vk(keyboard.KeyCode(vk=66)))
+
+        hotkeys = [{keyboard.Key.ctrl_l, keyboard.Key.alt_l,  keyboard.KeyCode(vk=66)}]#,
+                   #{keyboard.Key.ctrl, keyboard.Key.alt,  keyboard.KeyCode(vk=66)}]
+        hotkey = set()
+
+        kb_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         kb_listener.start()
 
         connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener': kb_listener})
