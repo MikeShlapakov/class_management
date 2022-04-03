@@ -2,6 +2,7 @@ import sys
 import socket
 import numpy as np
 from PIL import Image
+from zlib import decompress
 import win32api, win32gui, win32ui, win32con, atexit
 from ctypes import *
 from ctypes.wintypes import DWORD, WPARAM, LPARAM
@@ -18,6 +19,18 @@ import json
 import cv2
 from client_ui import client_ui as UI
 import admin
+
+
+def get_open_port():
+    """
+    Use socket's built in ability to find an open port.
+    """
+    sock = socket.socket()
+    sock.bind(('', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    print(port)
+    return port
 
 
 def send_msg(conn, type="", **kwargs):
@@ -64,7 +77,8 @@ def get_msg(conn):
     except ConnectionAbortedError:
         print(f"connection with {conn.getpeername()} lost")
         return False
-    print("got", msg)
+    if msg.find('MOVE') == -1:
+        print("got", msg)
     return json.loads(msg)
 
 
@@ -129,12 +143,9 @@ class Listener(QObject):
 def send_screenshot():
     global SOCKETS
     sock = SOCKETS['screen_sharing_sock']
-    screenSize = [win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)]
-    sock.send(str(screenSize).encode('utf-8'))
-    sock.recv(1)
     scale = 0.5
-    try:
-        while True:
+    while True:
+        try:
             data = get_screenshot()
             img = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(img)  # converting the array to image
@@ -157,12 +168,67 @@ def send_screenshot():
             #     msg = msg[50000:]
             header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
             sock.send(header.encode())
+            # print(header)
             sock.send(msg)
-    except ConnectionResetError:
-        print("screen-sharing stopped: admin disconnected")
-    except Exception as e:
-        print(f'screen-sharing stopped: {e}')
+        except (ConnectionResetError, WindowsError) as e:
+            print("screen-sharing: admin disconnected", e)
+            if e.winerror == 10040:
+                print(e)
+                sock.send(header.encode())
+            else:
+                break
+        except Exception as e:
+            print(f'screen-sharing: {e}')
     return
+
+
+def screen_sharing():
+    sock = SOCKETS['share_sock']
+    pixmap = QPixmap()
+    while True:
+        try:
+            img_len = sock.recvfrom(16)[0]
+            img = sock.recvfrom(eval(img_len.decode()))[0]
+            if len(img) != eval(img_len.decode()):
+                continue
+            # print(img_len)
+            pixmap.loadFromData(decompress(img))
+            pixmap.scaled(WINDOWS['share_screen'].widget.width(), WINDOWS['share_screen'].widget.height(),
+                          Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            WINDOWS['share_screen'].widget.setScaledContents(True)
+            WINDOWS['share_screen'].widget.setPixmap(QPixmap(pixmap))
+            WINDOWS['share_screen'].widget.setAlignment(Qt.AlignCenter)
+        except (ConnectionResetError, WindowsError) as e:
+            print(f"screen_sharing stopped: {sock} disconnected", e)
+            if e.winerror == 10038:
+                # if WINDOWS['share_screen'].isVisible():
+                #   WINDOWS['share_screen'].close()
+                break
+        except Exception as e:
+            print(f'screen_sharing stopped: {e}')
+
+
+class ShareScreen(UI.ShareScreenWindow):
+    def __init__(self, share):
+        global WINDOWS
+        super(ShareScreen, self).__init__()
+        WINDOWS['share_screen'] = self
+        WINDOWS['share_screen'].show()
+        if not share:
+            print('share stopped')
+            SOCKETS['share_sock'].close()
+            SOCKETS.pop('share_sock')
+            THREADS['share_thread'].join()
+            THREADS.pop('share_thread')
+            if WINDOWS['share_screen'].isVisible():
+                WINDOWS['share_screen'].close()
+            return
+        SOCKETS.update({'share_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+        port = get_open_port()
+        SOCKETS['share_sock'].bind((SOCKETS['admin_sock'].getsockname()[0], port))
+        send_msg(SOCKETS['admin_sock'], 'bind', address=(SOCKETS['admin_sock'].getsockname()[0], port))
+        THREADS.update({'share_thread':Thread(target=screen_sharing, daemon=True)})
+        THREADS['share_thread'].start()
 
 
 def controller():
@@ -210,7 +276,6 @@ def controller():
             msg = get_msg(sock)
             if not msg:
                 return
-            print(msg)
             try:
                 if msg['type'] == 'block_input':
                     block_input(msg['block_input'])
@@ -238,38 +303,80 @@ def block_input(block):
     return
 
 
-def Connect(addr):
-    global SOCKETS
+class AdminHandle(QObject):
+    shareScreen = pyqtSignal(bool)
+    finished = pyqtSignal()
 
-    block_input(True)
+    def __init__(self):
+        super().__init__()
+        global SOCKETS
+        self.sock = SOCKETS['admin_msg_sock']
 
-    SOCKETS['admin_sock'] = socket.socket()
-    SOCKETS['admin_sock'].connect(addr)
+    def run(self):
+        """handle incoming messages from the admin"""
+        try:
+            while True:
+                msg = get_msg(self.sock)
+                if not msg:
+                    return
+                if msg['type'] == 'share':
+                    self.shareScreen.emit(msg['share'])
+        except ConnectionResetError:
+            print("admin_msg_sock stopped: admin disconnected")
+        except Exception as e:
+            print(f'admin_msg_sock stopped: {e}')
+        self.finished.emit()
 
-    msg = get_msg(SOCKETS['admin_sock'])
-    if not msg:
-        return
-    screen_saring_port = msg['port']
-    SOCKETS['screen_sharing_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-    SOCKETS['screen_sharing_sock'].connect((addr[0], screen_saring_port))
-    screansharing = Thread(target=send_screenshot, daemon=True)
-    screansharing.start()
 
-    msg = get_msg(SOCKETS['admin_sock'])
-    if not msg:
-        return
-    control_port = msg['port']
-    SOCKETS['control_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-    SOCKETS['control_sock'].connect((addr[0], control_port))
-    controling = Thread(target=controller, daemon=True)
-    controling.start()
+class Connect(QObject):
+    def __init__(self, addr):
+        super().__init__()
+        global SOCKETS
 
-    msg = get_msg(SOCKETS['admin_sock'])
-    if not msg:
-        return
-    send_msg_port = msg['port']
-    SOCKETS['msg_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-    SOCKETS['msg_sock'].connect((addr[0], send_msg_port))
+        # block_input(True)
+        WINDOWS['Connect'] = self
+
+        SOCKETS['admin_sock'] = socket.socket()
+        SOCKETS['admin_sock'].connect(addr)
+
+        send_msg(SOCKETS['admin_sock'] , 'ScreenSize',size=[win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)])
+
+        msg = get_msg(SOCKETS['admin_sock'])
+        if not msg:
+            return
+        screen_saring_port = msg['port']
+        SOCKETS['screen_sharing_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        SOCKETS['screen_sharing_sock'].connect((addr[0], screen_saring_port))
+        screansharing = Thread(target=send_screenshot, daemon=True)
+        screansharing.start()
+
+        msg = get_msg(SOCKETS['admin_sock'])
+        if not msg:
+            return
+        control_port = msg['port']
+        SOCKETS['control_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+        SOCKETS['control_sock'].connect((addr[0], control_port))
+        controling = Thread(target=controller, daemon=True)
+        controling.start()
+
+        msg = get_msg(SOCKETS['admin_sock'])
+        if not msg:
+            return
+        send_msg_port = msg['port']
+        SOCKETS['admin_msg_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+        SOCKETS['admin_msg_sock'].connect((addr[0], send_msg_port))
+        self.start_admin_thread()
+
+    def start_admin_thread(self):
+        self.admin_handle_thread = QThread()
+        self.admin_handle = AdminHandle()
+        self.admin_handle.moveToThread(self.admin_handle_thread)
+        self.admin_handle_thread.started.connect(self.admin_handle.run)
+        self.admin_handle.shareScreen.connect(ShareScreen)
+        self.admin_handle.finished.connect(self.admin_handle_thread.quit)
+        self.admin_handle.finished.connect(self.admin_handle.deleteLater)
+        self.admin_handle_thread.finished.connect(self.admin_handle_thread.deleteLater)
+        self.admin_handle_thread.start()
 
 
 def Disconnect():
@@ -278,7 +385,10 @@ def Disconnect():
     for sock in SOCKETS:
         if sock == 'server_sock':
             continue
-        SOCKETS[sock].close()
+        try:
+            SOCKETS[sock].close()
+        except AttributeError:
+            pass
 
 
 class LoginWindow(QMainWindow):  # TODO splash screen
@@ -413,8 +523,8 @@ def alert(sock):
 if __name__ == '__main__':
     BLOCK_INPUT = False
     # ADDR = '192.168.66.148'
-    # ADDR = '192.168.31.101'
-    ADDR = '172.16.1.163'
+    ADDR = '192.168.31.208'
+    # ADDR = '172.16.1.23'
     BUFSIZE = 16  # Buffer size
     SOCKETS = {'server_sock': None,
                'admin_sock': None,

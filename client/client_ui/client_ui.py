@@ -437,16 +437,11 @@ class TabView_UI(QMainWindow):
         # # self.newAction.setIcon(QIcon(":file-new.svg"))
         self.blockInputAction = QAction(QIcon("./block.jpg"), "&Block Input", self)
         self.unblockInputAction = QAction(QIcon("./unblock.jpg"), "&Unblock Input", self)
-        self.saveAction = QAction(QIcon("save.jpg"), "&Save", self)
-        self.openAction = QAction(QIcon("file-open.jpg"), "&Open...", self)
-        self.saveAction = QAction(QIcon("save.jpg"), "&Save", self)
+        self.shareScreenAction = QAction("&Share Screen", self)
         # self.exitAction = QAction("&Exit", self)
-        # self.newButton = CustomButton(self.centralwidget, "NEW")
         self.blockInputButton = CustomButton(self.centralwidget, "BLOCK INPUT")
         self.unblockInputButton = CustomButton(self.centralwidget, "UNBLOCK INPUT")
-        # self.openButton = CustomButton(self.centralwidget, "OPEN")
-        # self.saveButton = CustomButton(self.centralwidget, "SAVE")
-        # self.exitButton = CustomButton(self.centralwidget, "EXIT")
+        self.shareScreenButton = CustomButton(self.centralwidget, "SHARE SCREEN")
         self.back_to_main_btn = CustomButton(self.centralwidget, "VIEW ALL")
 
 
@@ -469,7 +464,35 @@ class TabView_UI(QMainWindow):
         # fileToolBar.addWidget(self.exitButton)
         fileToolBar.addWidget(self.blockInputButton)
         fileToolBar.addWidget(self.unblockInputButton)
+        fileToolBar.addWidget(self.shareScreenButton)
         fileToolBar.addWidget(self.back_to_main_btn)
+
+        self.ChatBox = QGroupBox(self)
+        self.ChatBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
+        self.verticalLayout2 = QVBoxLayout(self.ChatBox)
+
+        self.Chat = QListWidget(self.ChatBox)  # chat
+        self.verticalLayout2.addWidget(self.Chat)
+
+        self.Entry = QLineEdit(self.ChatBox)
+        self.Entry.setMinimumSize(QSize(0, 40))
+        self.verticalLayout2.addWidget(self.Entry)
+
+        self.chatToolBar = QToolBar("Chat")
+        self.addToolBar(Qt.RightToolBarArea, self.chatToolBar)
+        self.chatToolBar.addWidget(self.ChatBox)
+
+        self.alertBox = QGroupBox(self) # alert box
+        self.alertBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
+        self.verticalLayout3 = QVBoxLayout(self.alertBox)
+
+        self.alerts = QListWidget(self.alertBox)
+        self.verticalLayout3.addWidget(self.alerts)
+
+        self.alertToolBar = QToolBar("Alerts")
+        self.addToolBar(Qt.RightToolBarArea, self.alertToolBar)
+        self.alertToolBar.addWidget(self.alertBox)
+
         # Edit toolbar
         # editToolBar = QToolBar("Edit", self)
         # self.addToolBar(editToolBar)
@@ -483,14 +506,51 @@ class TabView_UI(QMainWindow):
         # Populating the widget with actions
         self.centralwidget.addAction(self.blockInputAction)
         self.centralwidget.addAction(self.unblockInputAction)
-        self.centralwidget.addAction(self.newAction)
-        self.centralwidget.addAction(self.openAction)
-        self.centralwidget.addAction(self.saveAction)
+        self.centralwidget.addAction(self.shareScreenAction)
 
 
     def retranslateUi(self, Window):
         Window.setWindowTitle(QCoreApplication.translate("TabWindow", u"My Class", None))
         # retranslateUi
+
+
+class ChatBox_UI(QMainWindow):
+    def __init__(self, parent=None):
+        super(ChatBox_UI, self).__init__(parent)
+        self.horizontalLayout = QHBoxLayout(self)
+
+        self.groupBox = QGroupBox(self)
+        self.verticalLayout = QVBoxLayout(self.groupBox)
+
+        self.listWidget = QListWidget(self.groupBox)  # chat
+        # self.listWidget.setMaximumSize(QSize(200, 200))
+        self.verticalLayout.addWidget(self.listWidget)
+
+        self.lineEdit = QLineEdit(self.groupBox)
+        self.lineEdit.setMinimumSize(QSize(0, 40))
+        self.verticalLayout.addWidget(self.lineEdit)
+
+        self.horizontalLayout.addWidget(self.groupBox)
+
+        self.setCentralWidget(self.groupBox)
+
+
+class ShareScreenWindow(QMainWindow):
+
+    def __init__(self):
+        super(ShareScreenWindow, self).__init__()
+
+        self.setWindowTitle("My App")
+
+        self.widget = QLabel("Hello")
+        self.widget.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+        self.setCentralWidget(self.widget)
+        self.showMaximized()
+        self.setWindowFlags(
+            # Qt.WindowStaysOnTopHint |
+            Qt.FramelessWindowHint
+        )
 
 
 if __name__ == "__main__":
@@ -503,5 +563,33 @@ if __name__ == "__main__":
     # MainWindow.show()
     # e = ComputerScreenTab()
     e = TabView_UI()
+    comp = ComputerScreen(e)
+    comp2 = ComputerScreen(e)
+    # comp.label.setObjectName(f"comp{1}")
+    # comp.label.setToolTip(f"{123}\'s computer")
+    # comp.label.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+    #                                         u"border-radius: 5px;}\n"
+    #                                         u"QLabel:hover{\n"
+    #                                         u"border: 5px solid rgb(80, 180, 80);\n"
+    #                                         u"border-radius: 5px;\n"
+    #                                         u"}")
+    # comp.label.setMinimumSize(QSize(240, 135))
+    # comp.label.setMaximumSize(QSize(1920, 1080))
+    #
+    # comp2 = ComputerScreenWidget(e)
+    # comp2.label.setObjectName(f"comp{2}")
+    # comp2.label.setToolTip(f"abs\'s computer")
+    # comp2.label.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+    #                                         u"border-radius: 5px;}\n"
+    #                                         u"QLabel:hover{\n"
+    #                                         u"border: 5px solid rgb(80, 180, 80);\n"
+    #                                         u"border-radius: 5px;\n"
+    #                                         u"}")
+    # comp2.label.setMinimumSize(QSize(240, 135))
+    # comp2.label.setMaximumSize(QSize(1920, 1080))
+
+    e.tabWidget.addTab(comp, '123')
+    e.tabWidget.addTab(comp2, 'abs')
+    # e = ChatBox_UI()
     e.show()
     sys.exit(app.exec_())
