@@ -441,19 +441,22 @@ class TabView_UI(QMainWindow):
         # self.exitAction = QAction("&Exit", self)
         self.blockInputButton = CustomButton(self.centralwidget, "BLOCK INPUT")
         self.unblockInputButton = CustomButton(self.centralwidget, "UNBLOCK INPUT")
+        self.blockScreenButton = CustomButton(self.centralwidget, "BLOCK SCREEN")
         self.shareScreenButton = CustomButton(self.centralwidget, "SHARE SCREEN")
+        self.recordButton = CustomButton(self.centralwidget, "RECORD SCREEN")
+        self.chatButton = CustomButton(self.centralwidget, "CHAT")
+        self.shareFileButton = CustomButton(self.centralwidget, "SHARE FILE")
         self.back_to_main_btn = CustomButton(self.centralwidget, "VIEW ALL")
-
 
         # # Edit actions
         # self.copyAction = QAction(QIcon(":edit-copy.svg"), "&Copy", self)
         # self.pasteAction = QAction(QIcon(":edit-paste.svg"), "&Paste", self)
         # self.cutAction = QAction(QIcon(":edit-cut.svg"), "C&ut", self)
 
-
     def _createToolBars(self):
         # File toolbar
-        fileToolBar = self.addToolBar("Tools")
+        self.toolBar = QToolBar("TOOLS")
+        self.addToolBar(Qt.LeftToolBarArea, self.toolBar)
         # fileToolBar.addAction(self.blockInputAction)
         # fileToolBar.addAction(self.unblockInputAction)
         # fileToolBar.addAction(self.saveAction)
@@ -462,43 +465,38 @@ class TabView_UI(QMainWindow):
         # fileToolBar.addWidget(self.openButton)
         # fileToolBar.addWidget(self.saveButton)
         # fileToolBar.addWidget(self.exitButton)
-        fileToolBar.addWidget(self.blockInputButton)
-        fileToolBar.addWidget(self.unblockInputButton)
-        fileToolBar.addWidget(self.shareScreenButton)
-        fileToolBar.addWidget(self.back_to_main_btn)
-
-        self.ChatBox = QGroupBox(self)
-        self.ChatBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
-        self.verticalLayout2 = QVBoxLayout(self.ChatBox)
-
-        self.Chat = QListWidget(self.ChatBox)  # chat
-        self.verticalLayout2.addWidget(self.Chat)
-
-        self.Entry = QLineEdit(self.ChatBox)
-        self.Entry.setMinimumSize(QSize(0, 40))
-        self.verticalLayout2.addWidget(self.Entry)
-
-        self.chatToolBar = QToolBar("Chat")
-        self.addToolBar(Qt.RightToolBarArea, self.chatToolBar)
-        self.chatToolBar.addWidget(self.ChatBox)
-
-        self.alertBox = QGroupBox(self) # alert box
-        self.alertBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
+        self.alertBox = QGroupBox('ALERTS', self)  # alert box
+        self.alertBox.setMaximumSize(QSize(200, 400))
+        # self.alertBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
         self.verticalLayout3 = QVBoxLayout(self.alertBox)
+        self.alertBox.setStyleSheet("QGroupBox::title"
+                                    "{"
+                                    "border-top-left-radius: 9px;"
+                                    "border-top-right-radius: 9px;"
+                                    "padding: 2px 82px;"
+                                    "background-color: #FF17365D;"
+                                    "color: rgb(255, 255, 255);"
+                                    "}")
 
         self.alerts = QListWidget(self.alertBox)
         self.verticalLayout3.addWidget(self.alerts)
 
-        self.alertToolBar = QToolBar("Alerts")
-        self.addToolBar(Qt.RightToolBarArea, self.alertToolBar)
-        self.alertToolBar.addWidget(self.alertBox)
+        self.toolBar.addWidget(self.blockInputButton)
+        self.toolBar.addWidget(self.unblockInputButton)
+        self.toolBar.addWidget(self.blockScreenButton)
+        self.toolBar.addWidget(self.shareScreenButton)
+        self.toolBar.addWidget(self.recordButton)
+        self.toolBar.addWidget(self.chatButton)
+        self.toolBar.addWidget(self.shareFileButton)
+        self.toolBar.addWidget(self.alertBox)
+        self.toolBar.addWidget(self.back_to_main_btn)
 
-        # Edit toolbar
-        # editToolBar = QToolBar("Edit", self)
-        # self.addToolBar(editToolBar)
-        # editToolBar.addAction(self.copyAction)
-        # editToolBar.addAction(self.pasteAction)
-        # editToolBar.addAction(self.cutAction)
+        # self.verticalLayout2 = QVBoxLayout()
+        #
+        # self.ChatBox = QGroupBox('CHAT', self)
+        # self.ChatBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
+        # self.ChatBox.setStyleSheet(
+        #     #  u"QGroupBox{"
 
     def _createContextMenu(self):
         # Setting contextMenuPolicy
@@ -507,7 +505,6 @@ class TabView_UI(QMainWindow):
         self.centralwidget.addAction(self.blockInputAction)
         self.centralwidget.addAction(self.unblockInputAction)
         self.centralwidget.addAction(self.shareScreenAction)
-
 
     def retranslateUi(self, Window):
         Window.setWindowTitle(QCoreApplication.translate("TabWindow", u"My Class", None))
@@ -573,8 +570,8 @@ if __name__ == "__main__":
     #                                         u"border: 5px solid rgb(80, 180, 80);\n"
     #                                         u"border-radius: 5px;\n"
     #                                         u"}")
-    # comp.label.setMinimumSize(QSize(240, 135))
-    # comp.label.setMaximumSize(QSize(1920, 1080))
+    comp.setMinimumSize(QSize(240, 135))
+    comp.setMaximumSize(QSize(1920, 1080))
     #
     # comp2 = ComputerScreenWidget(e)
     # comp2.label.setObjectName(f"comp{2}")

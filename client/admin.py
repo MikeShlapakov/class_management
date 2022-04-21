@@ -553,6 +553,25 @@ class MainWindow(UI.MainWindow_UI):
         connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener': kb_listener})
 
 
+    def Chat(self, comp):
+        global WINDOWS
+        self.chat_ui = UI.ChatBox_UI()
+        # if not WINDOWS.get('chat'):
+        #     WINDOWS['chat'] =
+        WINDOWS['chat'] = self.chat_ui
+        self.chat_ui.show()
+        self.chat_ui.lineEdit.returnPressed.connect(lambda: on_press(comp))
+
+        def on_press(comp):
+            for addr in connections:
+                if connections[addr]['comp'] == comp:
+                    send_msg(self.server, 'chat', msg=self.chat_ui.lineEdit.text(),
+                             recv=connections[addr]['ip'])
+                    break
+            else:
+                send_msg(self.server, 'chat', msg=self.chat_ui.lineEdit.text())
+
+
 def main(server_sock):
     global WINDOWS
     main_window = MainWindow(server_sock)
