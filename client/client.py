@@ -225,8 +225,8 @@ class ShareScreen(UI.ShareScreenWindow):
             return
         SOCKETS.update({'share_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
         port = get_open_port()
-        SOCKETS['share_sock'].bind((SOCKETS['admin_sock'].getsockname()[0], port))
-        send_msg(SOCKETS['admin_sock'], 'bind', address=(SOCKETS['admin_sock'].getsockname()[0], port))
+        SOCKETS['share_sock'].bind((SOCKETS['admin'].getsockname()[0], port))
+        send_msg(SOCKETS['admin'], 'bind', address=SOCKETS['share_sock'].getsockname())
         THREADS.update({'share_thread':Thread(target=screen_sharing, daemon=True)})
         THREADS['share_thread'].start()
 
@@ -336,12 +336,12 @@ class Connect(QObject):
         # block_input(True)
         WINDOWS['Connect'] = self
 
-        SOCKETS['admin_sock'] = socket.socket()
-        SOCKETS['admin_sock'].connect(addr)
+        SOCKETS['admin'] = socket.socket()
+        SOCKETS['admin'].connect(addr)
 
-        send_msg(SOCKETS['admin_sock'] , 'ScreenSize',size=[win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)])
+        send_msg(SOCKETS['admin'] , 'ScreenSize',size=[win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)])
 
-        msg = get_msg(SOCKETS['admin_sock'])
+        msg = get_msg(SOCKETS['admin'])
         if not msg:
             return
         screen_saring_port = msg['port']
@@ -350,7 +350,7 @@ class Connect(QObject):
         screansharing = Thread(target=send_screenshot, daemon=True)
         screansharing.start()
 
-        msg = get_msg(SOCKETS['admin_sock'])
+        msg = get_msg(SOCKETS['admin'])
         if not msg:
             return
         control_port = msg['port']
@@ -359,7 +359,7 @@ class Connect(QObject):
         controling = Thread(target=controller, daemon=True)
         controling.start()
 
-        msg = get_msg(SOCKETS['admin_sock'])
+        msg = get_msg(SOCKETS['admin'])
         if not msg:
             return
         send_msg_port = msg['port']
@@ -383,12 +383,33 @@ def Disconnect():
     global SOCKETS
     block_input(False)
     for sock in SOCKETS:
-        if sock == 'server_sock':
+        if sock == 'server':
             continue
         try:
             SOCKETS[sock].close()
         except AttributeError:
             pass
+
+
+class Chat(QObject):
+    def __init__(self, msg=None):
+        super().__init__()
+        global SOCKETS
+        self.ui = UI.ChatBox_UI()
+        WINDOWS['chat_ui'] = self.ui
+        self.ui.show()
+        self.ui.lineEdit.returnPressed.connect(self.on_press)
+
+    def on_press(self):
+        if SOCKETS['admin']:
+            send_msg(SOCKETS['server'], 'chat', recv=SOCKETS['admin_ip'], msg=self.ui.lineEdit.text())
+            return
+        send_msg(SOCKETS['server'], 'chat', msg=self.ui.lineEdit.text())
+        # print(self.ui.lineEdit.text())
+
+def alert():
+    if SOCKETS['admin_msg_sock']:
+        send_msg(SOCKETS['admin_msg_sock'], 'alert', addr=SOCKETS['admin'].getsockname(), alert='Trying take over the keyboard')
 
 
 class LoginWindow(QMainWindow):  # TODO splash screen
@@ -406,7 +427,7 @@ class LoginWindow(QMainWindow):  # TODO splash screen
         # print("client")
         self.showMinimized()
         self.listener_thread = QThread()
-        self.listener = Listener(SOCKETS['server_sock'])
+        self.listener = Listener(SOCKETS['server'])
         self.listener.moveToThread(self.listener_thread)
         self.listener_thread.started.connect(self.listener.run)
         self.listener.finished.connect(self.listener_thread.quit)
@@ -415,32 +436,33 @@ class LoginWindow(QMainWindow):  # TODO splash screen
         self.listener.admin_connected.connect(Connect)
         self.listener.disconnect.connect(Disconnect)
         self.listener_thread.start()
+        WINDOWS['chat'] = Chat()
 
     def login(self, command, name, password):
         global SOCKETS
         if name and password:
-            SOCKETS['server_sock'] = socket.socket()
-            SOCKETS['server_sock'].connect((ADDR, 12121))
+            SOCKETS['server'] = socket.socket()
+            SOCKETS['server'].connect((ADDR, 12121))
             print('connected')
-            if send_msg(SOCKETS['server_sock'], 'command', command=command, username=name, password=password):
-                msg = get_msg(SOCKETS['server_sock'])
+            if send_msg(SOCKETS['server'], 'command', command=command, username=name, password=password):
+                msg = get_msg(SOCKETS['server'])
                 if not msg:
-                    SOCKETS['server_sock'].close()
+                    SOCKETS['server'].close()
                     print('left login')
                     return
                 if msg['type'] == 'message':
                     if msg['priority'] == 'admin':
                         # print("admin")
-                        admin.main(SOCKETS['server_sock'])
+                        admin.main(SOCKETS['server'])
                     else:
                         self.login_as_client()
                 elif msg['type'] == 'error':
                     dlg = UI.CustomDialog(self, 'ERROR', msg['msg'])
                     dlg.exec_()
-                    SOCKETS['server_sock'].close()
+                    SOCKETS['server'].close()
                     print('left login')
             else:
-                SOCKETS['server_sock'].close()
+                SOCKETS['server'].close()
                 print('left login')
 
 
@@ -526,8 +548,8 @@ if __name__ == '__main__':
     ADDR = '192.168.31.208'
     # ADDR = '172.16.1.23'
     BUFSIZE = 16  # Buffer size
-    SOCKETS = {'server_sock': None,
-               'admin_sock': None,
+    SOCKETS = {'server': None,
+               'admin': None,
                'screen_sharing_sock': None,
                'control_sock': None,
                'msg_sock': None}
