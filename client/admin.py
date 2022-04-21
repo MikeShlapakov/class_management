@@ -8,7 +8,7 @@ import time
 import win32api
 import numpy
 from mss import mss
-from zlib import compress
+from zlib import compress, decompress
 from PIL import Image
 # PyQt5
 import sys
@@ -92,23 +92,23 @@ class Listener(QObject):
 
     def __init__(self, sock):
         super().__init__()
-        self.sock = sock
+        self.server = sock
         self.client_sock = socket.socket()
-        self.client_sock.bind((self.sock.getsockname()[0], 13131))
+        self.client_sock.bind((self.server.getsockname()[0], 13131))
         self.client_sock.listen(1)
         print(self.client_sock)
 
     def run(self):
         """handle incoming messages from the server"""
-        send_msg(self.sock, 'message', msg='admin_connected', address=self.client_sock.getsockname())
+        send_msg(self.server, 'message', msg='admin_connected', address=self.client_sock.getsockname())
         while True:
-            msg = get_msg(self.sock)  # get message
+            msg = get_msg(self.server)  # get message
             if not msg:
                 break
             if msg['type'] == 'message':
                 if msg['msg'] == 'client_connected':
                     conn, addr = self.client_sock.accept()  # establish connection with client
-                    connections[addr] = {'conn': conn}
+                    connections[addr] = {'conn': conn, 'name':msg['name'], 'ip':msg['ip']}
                     try:
                         self.client_connected.emit(addr)
                     except TypeError:
@@ -118,6 +118,8 @@ class Listener(QObject):
                         self.client_disconnected.emit(msg['address'])
                     except TypeError:
                         self.client_disconnected.emit(tuple(msg['address']))
+            if msg['type'] == 'chat':
+                WINDOWS['chat'].listWidget.addItem(msg['msg'])
         self.finished.emit()
 
 
@@ -177,33 +179,55 @@ def block_input(comp, block):
             connections[addr]['block_input'] = block
 
 
-def screen_sharing(addr):
-    conn = connections[addr]['screen_sharing_sock']
+def imagesDifference(imageA, imageB ):
+    # image_one = Image.open(imageA, 'r').convert('RGB')
+    # image_two = Image.open(imageB, 'r').convert('RGB')
+
+    diff1 = np.array(ImageChops.subtract(imageA, imageB, 1))
+    vec1 = np.argwhere(diff1[:,:,0] >20)
+    diff2 = np.array(ImageChops.subtract(imageA, imageB, -1))
+    vec2 = np.argwhere(diff2[:,:,0] >20)
+    return np.concatenate((-diff1[vec1[:,0],vec1[:,1], :], diff2[vec2[:,0],vec2[:,1], :])), np.concatenate((vec1,vec2))
+
+
+def screen_sharing(addr, conn, num):
     # connections[addr]['comp'] = connections[addr]['comp']
     pixmap = QPixmap()
     while connections[addr]['screen_sharing']:
         try:
             img_len = conn.recv(16)
-            # print(img_len)
-            img = b''
-            # while eval(img_len.decode()) == 50000:
-            #     conn.sendto(b'1', address)
-            #     img += conn.recv(eval(img_len.decode()))
-            #     print(f'1 {len(img)}')
-            #     if len(img) == 16:
-            #         print('break')
-            #         break
-            #     img_len = conn.recv(16)
-            # else:
-            img += conn.recv(eval(img_len.decode()))
+            img = conn.recv(eval(img_len.decode()))
             if len(img) != eval(img_len.decode()):
                 continue
-            pixmap.loadFromData(img)
-            # pixmap.scaled(connections[addr]['comp'].width(), connections[addr]['comp'].height(), Qt.KeepAspectRatio,
-            #               Qt.SmoothTransformation)
-            connections[addr]['comp'].setScaledContents(True)
-            connections[addr]['comp'].setPixmap(QPixmap(pixmap))
-            connections[addr]['comp'].setAlignment(Qt.AlignCenter)
+            pixmap.loadFromData(decompress(img))
+            pixmap.scaled(connections[addr]['comp'].width(), connections[addr]['comp'].height(), Qt.KeepAspectRatio,
+                          Qt.SmoothTransformation)
+            # label = connections[addr]['comp'].findChild(QLabel, num)
+            for label in [connections[addr]['comp'].top_left, connections[addr]['comp'].top_right, connections[addr]['comp'].bottom_left, connections[addr]['comp'].bottom_right]:
+                # print(label.objectName
+                if label.objectName() == num:
+                    label.setScaledContents(True)
+                    label.setPixmap(QPixmap(pixmap))
+                    label.setAlignment(Qt.AlignCenter)
+                    # connections[addr]['comp'].top_left.setScaledContents(True)
+                    # connections[addr]['comp'].top_left.setPixmap(QPixmap(pixmap))
+                    # connections[addr]['comp'].top_left.setAlignment(Qt.AlignCenter)
+                    break
+            # if num == 'top_right':
+            #     connections[addr]['comp'].top_right.setScaledContents(True)
+            #     connections[addr]['comp'].top_right.setPixmap(QPixmap(pixmap))
+            #     connections[addr]['comp'].top_right.setAlignment(Qt.AlignCenter)
+            #     continue
+            # if num == 'bottom_left':
+            #     connections[addr]['comp'].bottom_left.setScaledContents(True)
+            #     connections[addr]['comp'].bottom_left.setPixmap(QPixmap(pixmap))
+            #     connections[addr]['comp'].bottom_left.setAlignment(Qt.AlignCenter)
+            #     continue
+            # if num == 'bottom_right':
+            #     connections[addr]['comp'].bottom_right.setScaledContents(True)
+            #     connections[addr]['comp'].bottom_right.setPixmap(QPixmap(pixmap))
+            #     connections[addr]['comp'].bottom_right.setAlignment(Qt.AlignCenter)
+            #     continue
 
         except (ConnectionResetError,WindowsError) as e:
             print(f"screen_sharing: {addr} disconnected, {e}")
@@ -216,12 +240,22 @@ def screen_sharing(addr):
     print('screen_sharing done')
 
 
+def StartShareScreen(addr):
+    for i in ['top_left', 'top_right', 'bottom_left', 'bottom_right']:
+        connections[addr][f'{i}'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        connections[addr][f'{i}'].bind((connections[addr]['conn'].getsockname()[0], get_open_port()))
+        send_msg(connections[addr]['screen_sharing_conn'], 'bind', address=connections[addr][f'{i}'].getsockname())
+        connections[addr][f'thread{i}'] = Thread(target=screen_sharing, args=(addr, connections[addr][f'{i}'], i), daemon=True)
+        connections[addr][f'thread{i}'].start()
+
+
 def send_screenshots(addr, address, sock):
     rect = {'top': 0, 'left': 0, 'width': win32api.GetSystemMetrics(0), 'height': win32api.GetSystemMetrics(1)}
-
+    print(1)
     with mss() as sct:
         try:
             while True:
+                print(420)
                 # prev = time.time()
                 sct_img = sct.grab(rect)
                 # Tweak the compression level here (0-9)
@@ -251,27 +285,33 @@ def send_screenshots(addr, address, sock):
         return
 
 
-def StartScreenSharing(comp):
-    print(1)
+def StartScreenSharing(comp, share=True):
     for addr in connections:
         if connections[addr]['comp'] == comp:
-            print(2)
-            if connections[addr].get('sharing_sock'):
-                send_msg(connections[addr]['handle_msg_conn'], 'share', share=False)
-                connections[addr]['sharing_sock'].close()
-                connections[addr].pop('sharing_sock')
-                connections[addr]['sharing_thread'].join()
-                connections[addr].pop('sharing_thread')
-                connections[addr]['screen_sharing'] = True
-                connections[addr].update(
-                    {'screen_sharing_thread': Thread(target=screen_sharing, args=(addr,), daemon=True)})
-                connections[addr]['screen_sharing_thread'].start()
+            if connections[addr]['sharing_screen']  or not share:
+                if connections[addr].get('sharing_sock'):
+                    send_msg(connections[addr]['handle_msg_conn'], 'share', share=False)
+                    connections[addr]['sharing_screen'] = False
+                    connections[addr]['sharing_sock'].close()
+                    connections[addr].pop('sharing_sock')
+                    connections[addr]['sharing_thread'].join()
+                    connections[addr].pop('sharing_thread')
+                    connections[addr]['screen_sharing'] = True
+                    send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=True)
+                    connections[addr].update(
+                        {'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr,), daemon=True)})
+                    connections[addr]['screen_sharing_thread'].start()
                 return
+            connections[addr]['sharing_screen'] = True
             send_msg(connections[addr]['handle_msg_conn'], 'share', share=True)
             msg = get_msg(connections[addr]['conn'])
             if not msg:
                 return
             if msg['type'] == 'bind':
+                if connections[addr]['block_screen']:
+                    send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=False, img=None)
+                    connections[addr]['block_screen'] = False
+                send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
                 connections[addr]['screen_sharing'] = False
                 connections[addr]['screen_sharing_thread'].join()
                 connections[addr].pop('screen_sharing_thread')
@@ -320,11 +360,15 @@ class MainWindow(UI.MainWindow_UI):
 
         connections[addr]['screen_sharing'] = True
 
-        connections[addr].update({'screen_sharing_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+        connections[addr].update({'screen_sharing_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)})
         port = get_open_port()
         connections[addr]['screen_sharing_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
-        send_msg(connections[addr]['conn'], 'message', port=port)
-        connections[addr].update({'screen_sharing_thread': Thread(target=screen_sharing, args=(addr,), daemon=True)})
+        connections[addr]['screen_sharing_sock'].listen(1)
+        print(1)
+        send_msg(connections[addr]['conn'], 'message', address=(connections[addr]['conn'].getsockname()[0], port))
+        connections[addr]['screen_sharing_conn'] = connections[addr]['screen_sharing_sock'].accept()[0]
+        print(2)
+        connections[addr].update({'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr, ), daemon=True)})
         connections[addr]['screen_sharing_thread'].start()
 
         connections[addr].update({'control_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)})
@@ -345,6 +389,8 @@ class MainWindow(UI.MainWindow_UI):
         connections[addr]['handle_msg_thread'].start()
 
         connections[addr].update({'block_input': False})
+        connections[addr].update({'sharing_screen': False})
+        connections[addr].update({'block_screen': False})
 
         self.group_view()
 
@@ -357,10 +403,11 @@ class MainWindow(UI.MainWindow_UI):
                         connections[addr]['comp'] = UI.ComputerScreen(self.widget)
                         connections[addr]['comp'].setObjectName(f"comp{num}")
                         connections[addr]['comp'].setToolTip(f"{addr}\'s computer")
-                        connections[addr]['comp'].setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
+                        connections[addr]['comp'].setStyleSheet(f"QFrame#comp{num}"
+                                                                u"{background-color: rgb(150, 150, 150);\n"
                                                                 u"border-radius: 5px;}\n"
-                                                                u"QLabel:hover{\n"
-                                                                u"border: 5px solid rgb(80, 180, 80);\n"
+                                                                f"QFrame#comp{num}:hover"
+                                                                u"{border: 5px solid rgb(80, 180, 80);\n"
                                                                 u"border-radius: 5px;\n"
                                                                 u"}")
                         connections[addr]['comp'].setMinimumSize(QSize(240, 135))
@@ -381,7 +428,7 @@ class MainWindow(UI.MainWindow_UI):
         if event['action'] == "Double Click":
             for addr in connections:
                 if connections[addr]['comp'].objectName() == event['name']:
-                    if connections[addr]['comp'].pixmap():
+                    if connections[addr]['comp'].top_left.pixmap():
                         self.tab_view = UI.TabView_UI()
                         # tab = UI.ComputerScreenWidget(self.tab_view)
                         # connections[addr]['comp'].setParent(self.tab_view.tabWidget)
@@ -398,6 +445,7 @@ class MainWindow(UI.MainWindow_UI):
                         self.tab_view.blockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), True))
                         self.tab_view.unblockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), False))
                         self.tab_view.shareScreenAction.triggered.connect(lambda: StartScreenSharing(self.tab_view.tabWidget.currentWidget()))
+                        self.tab_view.blockScreenButton.clicked.connect(lambda: self.BlockScreen(self.tab_view.tabWidget.currentWidget(), True))
                         self.tab_view.chatButton.clicked.connect(lambda: self.Chat(self.tab_view.tabWidget.currentWidget()))
                         for address in connections:
                             connections[address]['comp'].disconnect()
@@ -519,6 +567,15 @@ class MainWindow(UI.MainWindow_UI):
 
         connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener': kb_listener})
 
+    # def alerts(self, dict):
+    #     print(dict)
+    #     if not WINDOWS['tab_view'].isHidden():
+    #         print(2)
+    #         if connections[dict['addr']]['comp']:
+    #             print(3)
+    #             self.tab_view.alerts.addItem(dict['alert'])
+
+
     def handle_client_msg(self, addr):
         conn = connections[addr]['handle_msg_conn']
         while True:
@@ -555,6 +612,51 @@ class MainWindow(UI.MainWindow_UI):
                     break
             else:
                 send_msg(self.server, 'chat', msg=self.chat_ui.lineEdit.text())
+
+
+    def BlockScreen(self, comp, block=True):
+        for addr in connections:
+            if connections[addr]['comp'] == comp:
+                if connections[addr]['block_screen'] or not block:
+                    send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=False, img=None)
+                    connections[addr]['block_screen'] = False
+                    connections[addr]['screen_sharing'] = True
+                    send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=True)
+                    connections[addr].update(
+                        {'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr,), daemon=True)})
+                    connections[addr]['screen_sharing_thread'].start()
+                    return
+                connections[addr]['block_screen'] = True
+                send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=True)
+                msg = get_msg(connections[addr]['conn'])
+                if not msg:
+                    return
+                if msg['type'] == 'bind':
+                    if connections[addr]['sharing_screen']:
+                        send_msg(connections[addr]['handle_msg_conn'], 'share', share=False)
+                        connections[addr]['sharing_screen'] = False
+                        connections[addr]['sharing_sock'].close()
+                        connections[addr].pop('sharing_sock')
+                        connections[addr]['sharing_thread'].join()
+                    send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
+                    connections[addr]['screen_sharing'] = False
+                    connections[addr]['screen_sharing_thread'].join()
+                    connections[addr].pop('screen_sharing_thread')
+                    block_screen_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+                    block_screen_sock.connect(tuple(msg['address']))
+                    img = Image.open(r'C:\Users\D451\Python Projects\class_management\client\pic.jpg')
+                    new_scale = (int(img.size[0] * 0.5), int(img.size[1] * 0.5))  # compress the image with scale 0.5
+                    img = img.resize(new_scale, Image.ANTIALIAS)
+                    img_bytes = io.BytesIO()
+                    # optimize the image and convert it to bytes
+                    img.save(img_bytes, format='JPEG', optimize=True, quality=80)
+                    msg = compress(img_bytes.getvalue(), 9)
+                    msg_len = len(msg)
+                    header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
+                    print(header)
+                    block_screen_sock.send(header.encode())
+                    block_screen_sock.send(msg)
+                return
 
 
 def main(server_sock):

@@ -1,8 +1,9 @@
 import sys
 import socket
 import numpy as np
-from PIL import Image
-from zlib import decompress
+from PIL import Image, ImageChops
+from zlib import compress, decompress
+from mss import mss
 import win32api, win32gui, win32ui, win32con, atexit
 from ctypes import *
 from ctypes.wintypes import DWORD, WPARAM, LPARAM
@@ -132,54 +133,107 @@ class Listener(QObject):
             if msg['type'] == 'message':
                 if msg['msg'] == 'admin_connected':
                     try:
+                        SOCKETS['admin_ip'] = msg['ip']
                         self.admin_connected.emit(msg['address'])
                     except TypeError:
                         self.admin_connected.emit(tuple(msg['address']))
                 elif msg['msg'] == 'admin_disconnected':
                     self.disconnect.emit()
+            elif msg['type'] == 'chat':
+                WINDOWS['chat_ui'].show()
+                WINDOWS['chat_ui'].listWidget.addItem(msg['msg'])
+                # self.listener.chat_msg.connect(Chat)
+                # self.chat_msg.emit(msg['msg'])
         self.finished.emit()
 
 
-def send_screenshot():
+def imagesDifference(imageA, imageB ):
+    diff1 = np.array(ImageChops.subtract(imageA, imageB, 1))
+    vec1 = np.argwhere(diff1[:,:,0] > 20)
+    diff2 = np.array(ImageChops.subtract(imageA, imageB, -1))
+    vec2 = np.argwhere(diff2[:,:,0] >20)
+    return np.concatenate((-diff1[vec1[:,0],vec1[:,1], :], diff2[vec2[:,0],vec2[:,1], :])), np.concatenate((vec1,vec2))
+
+
+def send_screenshot(rect, sock):
     global SOCKETS
-    sock = SOCKETS['screen_sharing_sock']
+    # sock = SOCKETS['screen_sharing_sock']
     scale = 0.5
-    while True:
-        try:
-            data = get_screenshot()
-            img = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(img)  # converting the array to image
-            new_scale = (int(img.size[0] * scale), int(img.size[1] * scale))  # compress the image with scale 0.5
-            img = img.resize(new_scale, Image.ANTIALIAS)
-            img_bytes = io.BytesIO()
-            img.save(img_bytes, format='JPEG', optimize=True,
-                     quality=80)  # optimize the image and convert it to bytes
-            # send image
-            msg = img_bytes.getvalue()
-            msg_len = len(msg)
-            # print(msg_len)
-            # while msg_len > 50000:
-            #     header = str(50000) + ' ' * (16 - len(str(50000)))
-            #     sock.send(header.encode())
-            #     sock.recv(1)
-            #     sock.send(msg[:50000])
-            #     msg_len -= 50000
-            #     print(msg_len, len(msg[:50000]), len(msg[50000:]))
-            #     msg = msg[50000:]
-            header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
-            sock.send(header.encode())
-            # print(header)
-            sock.send(msg)
-        except (ConnectionResetError, WindowsError) as e:
-            print("screen-sharing: admin disconnected", e)
-            if e.winerror == 10040:
-                print(e)
+
+    with mss() as sct:
+        # prev = time.time()
+        sct_img = sct.grab(rect)
+        # Tweak the compression level here (0-9)
+        img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+        new_scale = (int(img.size[0] * scale), int(img.size[1] * scale))  # compress the image with scale 0.5
+        img = img.resize(new_scale, Image.ANTIALIAS)
+        prev_img = img
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format='JPEG', optimize=True,
+                 quality=80)  # optimize the image and convert it to bytes
+        # send image
+        msg = compress(img_bytes.getvalue(), 9)
+        msg_len = len(msg)
+        header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
+        sock.send(header.encode())
+        print(header)
+        sock.send(msg)
+        while True:
+            try:
+                sct_img = sct.grab(rect)
+                # Tweak the compression level here (0-9)
+                new_img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+                new_scale = (int(new_img.size[0] * scale), int(new_img.size[1] * scale))  # compress the image with scale 0.5
+                new_img = new_img.resize(new_scale, Image.ANTIALIAS)
+                diff, index = imagesDifference(prev_img, new_img)
+                img_bytes = io.BytesIO()
+                new_img.save(img_bytes, format='JPEG', optimize=True,
+                         quality=80)  # optimize the image and convert it to bytes
+                # send image
+                msg = compress(img_bytes.getvalue(), 9)
+                msg_len = len(msg)
+                header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
                 sock.send(header.encode())
-            else:
-                break
-        except Exception as e:
-            print(f'screen-sharing: {e}')
+                # print(header)
+                sock.send(msg)
+                # print(len(msg), len(index))
+                prev_img = new_img
+            except (ConnectionResetError, WindowsError) as e:
+                print("screen-sharing: admin disconnected", e)
+                if e.winerror == 10040:
+                    print(e)
+                    sock.send(header.encode())
+                else:
+                    break
+            except Exception as e:
+                print(f'screen-sharing: {e}')
     return
+
+
+def StartShareScreen(share):
+    if not share:
+        for rect in ['rect', 'rect2', 'rect3', 'rect4']:
+            SOCKETS[f'{rect}'].close()
+            SOCKETS.pop(f'{rect}')
+            THREADS[f'{rect}'].join()
+            THREADS.pop(f'{rect}')
+        return
+
+    rects = {'rect' : {'top': 0, 'left': 0, 'width': win32api.GetSystemMetrics(0)//2, 'height': win32api.GetSystemMetrics(1)//2},
+    'rect2' : {'top': 0, 'left': win32api.GetSystemMetrics(0) // 2, 'width': win32api.GetSystemMetrics(0) // 2,
+            'height': win32api.GetSystemMetrics(1) // 2},
+    'rect3' : {'top': win32api.GetSystemMetrics(1) // 2, 'left': 0, 'width': win32api.GetSystemMetrics(0) // 2,
+            'height': win32api.GetSystemMetrics(1) // 2},
+    'rect4' : {'top': win32api.GetSystemMetrics(1) // 2, 'left': win32api.GetSystemMetrics(0) // 2, 'width': win32api.GetSystemMetrics(0) // 2,
+            'height': win32api.GetSystemMetrics(1) // 2}}
+    for rect in rects:
+        msg = get_msg(SOCKETS['screen_sharing_sock'])
+        if not msg or msg['type'] != 'bind':
+            return
+        SOCKETS[f'{rect}'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        SOCKETS[f'{rect}'].connect(tuple(msg['address']))
+        THREADS[f'{rect}'] = Thread(target=send_screenshot, args=(rects[rect], SOCKETS[f'{rect}']), daemon=True)
+        THREADS[f'{rect}'].start()
 
 
 def screen_sharing():
@@ -215,13 +269,14 @@ class ShareScreen(UI.ShareScreenWindow):
         WINDOWS['share_screen'] = self
         WINDOWS['share_screen'].show()
         if not share:
-            print('share stopped')
-            SOCKETS['share_sock'].close()
-            SOCKETS.pop('share_sock')
-            THREADS['share_thread'].join()
-            THREADS.pop('share_thread')
-            if WINDOWS['share_screen'].isVisible():
-                WINDOWS['share_screen'].close()
+            if SOCKETS.get('share_sock'):
+                print('share stopped')
+                SOCKETS['share_sock'].close()
+                SOCKETS.pop('share_sock')
+                THREADS['share_thread'].join()
+                THREADS.pop('share_thread')
+                if WINDOWS['share_screen'].isVisible():
+                    WINDOWS['share_screen'].close()
             return
         SOCKETS.update({'share_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
         port = get_open_port()
@@ -229,6 +284,38 @@ class ShareScreen(UI.ShareScreenWindow):
         send_msg(SOCKETS['admin'], 'bind', address=SOCKETS['share_sock'].getsockname())
         THREADS.update({'share_thread':Thread(target=screen_sharing, daemon=True)})
         THREADS['share_thread'].start()
+
+
+class BlockScreen(UI.ShareScreenWindow):
+    def __init__(self, block, img=None):
+        global WINDOWS
+        super(BlockScreen, self).__init__()
+        WINDOWS['block_screen'] = self
+        WINDOWS['block_screen'].show()
+        if not block:
+            print('block screen stopped')
+            if WINDOWS['block_screen'].isVisible():
+                WINDOWS['block_screen'].close()
+            return
+        block_screen_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+        port = get_open_port()
+        block_screen_sock.bind((SOCKETS['admin'].getsockname()[0], port))
+        block_screen_sock.listen(1)
+        send_msg(SOCKETS['admin'], 'bind', address=(SOCKETS['admin'].getsockname()[0], port))
+        conn, addr = block_screen_sock.accept()
+        img_len = conn.recv(16)
+        print(img_len)
+        img = conn.recv(eval(img_len.decode()))
+        print(len(img))
+        pixmap = QPixmap()
+        pixmap.loadFromData(decompress(img))
+        pixmap.scaled(self.widget.width(), self.widget.height(),
+                      Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.widget.setScaledContents(True)
+        self.widget.setPixmap(QPixmap(pixmap))
+        self.widget.setAlignment(Qt.AlignCenter)
+        block_screen_sock.close()
+        conn.close()
 
 
 def controller():
@@ -304,7 +391,9 @@ def block_input(block):
 
 
 class AdminHandle(QObject):
+    screenShare = pyqtSignal(bool)
     shareScreen = pyqtSignal(bool)
+    blockScreen = pyqtSignal(bool)
     finished = pyqtSignal()
 
     def __init__(self):
@@ -319,8 +408,12 @@ class AdminHandle(QObject):
                 msg = get_msg(self.sock)
                 if not msg:
                     return
+                if msg['type'] == 'screen_share':
+                    self.screenShare.emit(msg['share'])
                 if msg['type'] == 'share':
                     self.shareScreen.emit(msg['share'])
+                if msg['type'] == 'block_screen':
+                    self.blockScreen.emit(msg['block'])
         except ConnectionResetError:
             print("admin_msg_sock stopped: admin disconnected")
         except Exception as e:
@@ -344,10 +437,10 @@ class Connect(QObject):
         msg = get_msg(SOCKETS['admin'])
         if not msg:
             return
-        screen_saring_port = msg['port']
-        SOCKETS['screen_sharing_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        SOCKETS['screen_sharing_sock'].connect((addr[0], screen_saring_port))
-        screansharing = Thread(target=send_screenshot, daemon=True)
+        # screen_saring_port = msg['port']
+        SOCKETS['screen_sharing_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+        SOCKETS['screen_sharing_sock'].connect(tuple(msg['address']))
+        screansharing = Thread(target=StartShareScreen, args=(True,), daemon=True)
         screansharing.start()
 
         msg = get_msg(SOCKETS['admin'])
@@ -372,7 +465,9 @@ class Connect(QObject):
         self.admin_handle = AdminHandle()
         self.admin_handle.moveToThread(self.admin_handle_thread)
         self.admin_handle_thread.started.connect(self.admin_handle.run)
+        self.admin_handle.screenShare.connect(StartShareScreen)
         self.admin_handle.shareScreen.connect(ShareScreen)
+        self.admin_handle.blockScreen.connect(BlockScreen)
         self.admin_handle.finished.connect(self.admin_handle_thread.quit)
         self.admin_handle.finished.connect(self.admin_handle.deleteLater)
         self.admin_handle_thread.finished.connect(self.admin_handle_thread.deleteLater)

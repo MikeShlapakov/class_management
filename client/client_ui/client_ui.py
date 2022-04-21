@@ -10,22 +10,22 @@ class CustomButton(QPushButton):
         self.setFont(QFont("Calibri", 14, QFont.Bold))
         self.setCursor(QCursor(Qt.PointingHandCursor))
         self.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
-                                            "border-radius: 5px;\n"
-                                            "color: rgb(30, 30, 40);\n"
-                                            "padding-left: 20px;\n"
-                                            "padding-right: 20px;\n"
-                                            "background-color: rgb(65, 65, 90);}"
-                                            "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
-                                            "color:rgb(180, 180, 180);\n"
-                                            "background-color: rgb(80, 80, 120);}")
+                           "border-radius: 5px;\n"
+                           "color: rgb(30, 30, 40);\n"
+                           "padding-left: 20px;\n"
+                           "padding-right: 20px;\n"
+                           "background-color: rgb(65, 65, 90);}"
+                           "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
+                           "color:rgb(180, 180, 180);\n"
+                           "background-color: rgb(80, 80, 120);}")
 
 
-class ComputerScreen(QLabel):
+class ComputerScreen(QFrame):
     clicked = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super(ComputerScreen, self).__init__(parent)
-
+        self.setObjectName('frame')
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         # sizePolicy.setHorizontalStretch(0)
         # sizePolicy.setVerticalStretch(0)
@@ -34,36 +34,55 @@ class ComputerScreen(QLabel):
         self.setMinimumSize(QSize(240, 135))
         self.setMaximumSize(QSize(480, 270))
         self.setCursor(Qt.PointingHandCursor)
-        # self.setStyleSheet(u"QLabel{background-color: rgb(150, 150, 150);\n"
-        #                                         u"border-radius: 5px;}\n"
-        #                                         u"QLabel:hover{\n"
-        #                                         u"border: 5px solid rgb(80, 180, 80);\n"
-        #                                         u"border-radius: 5px;\n"
-        #                                         u"}")
+        layout = QGridLayout()
+        self.top_left = QLabel('top_left')
+        self.top_left.setObjectName('top_left')
+        layout.addWidget(self.top_left,0,0)
+
+        self.top_right = QLabel('top_right')
+        self.top_right.setObjectName('top_right')
+        layout.addWidget(self.top_right,0,1)
+
+        self.bottom_left = QLabel('bottom_left')
+        self.bottom_left.setObjectName('bottom_left')
+        layout.addWidget(self.bottom_left,1,0)
+
+        self.bottom_right = QLabel('bottom_right')
+        self.bottom_right.setObjectName('bottom_right')
+        layout.addWidget(self.bottom_right,1,1)
+
+        layout.setSpacing(0)
+        self.setLayout(layout)
+        self.setStyleSheet(u"QFrame#frame{background-color: rgb(150, 150, 150);\n"
+                                                u"border-radius: 5px;}\n"
+                                                u"QFrame#frame:hover{\n"
+                                                u"border: 5px solid rgb(80, 180, 80);\n"
+                                                u"border-radius: 5px;\n"
+                                                u"}")
 
 
     def mousePressEvent(self, event):
-        self.params = {"name":self.objectName(),"action":"Click"}
+        self.params = {"name": self.objectName(), "action": "Click"}
 
     def mouseReleaseEvent(self, event):
-        if self.params == {"name":self.objectName(),"action":"Click"}:
+        if self.params == {"name": self.objectName(), "action": "Click"}:
             QTimer.singleShot(QApplication.instance().doubleClickInterval(),
                               self.performSingleClickAction)
         else:
             self.clicked.emit(self.params)
 
     def mouseDoubleClickEvent(self, event):
-        self.params = {"name":self.objectName(),"action":"Double Click"}
+        self.params = {"name": self.objectName(), "action": "Double Click"}
 
     def performSingleClickAction(self):
-        if self.params == {"name":self.objectName(),"action":"Click"}:
+        if self.params == {"name": self.objectName(), "action": "Click"}:
             self.clicked.emit(self.params)
 
     def enterEvent(self, event):
-        self.clicked.emit({"name": self.objectName(), "action":"Enter"})
+        self.clicked.emit({"name": self.objectName(), "action": "Enter"})
 
     def leaveEvent(self, *args, **kwargs):
-        self.clicked.emit({"name": self.objectName(), "action":"Leave"})
+        self.clicked.emit({"name": self.objectName(), "action": "Leave"})
 
 
 class ComputerScreenTab(QTabWidget):
@@ -74,18 +93,18 @@ class ComputerScreenTab(QTabWidget):
         self.setObjectName(u"tabWidget")
         self.setFont(QFont("Calibri", 14, QFont.Bold))
         self.setStyleSheet(u"QTabWidget:pane{background-color: rgb(25, 25, 35);"
-                                     u"border-radius: 5px;"
-                                     u"border: 2px solid rgb(25, 25, 35);}\n"
-                                     u"QTabBar::tab { background-color: rgb(25,25,35); "
-                                     u"color: rgb(125, 125, 150);"
-                                     u"border: 2px solid rgb(90,90,100); border-bottom-color: rgb(90,90,100);"
-                                     u"border-top-left-radius: 4px; "
-                                     u"border-top-right-radius: 4px; min-width: 8ex; padding: 2px;}\n"
-                                     u"QTabBar::tab:selected, QTabBar::tab:hover { "
-                                     u"background: rgb(90,90,115);"
-                                     u"color: rgb(25, 25, 35);}"
-                                     u"QTabBar::tab:selected { border-color: rgb(30,30,40); border-bottom-color:rgb(40,40,50); }"
-                                     u"QTabBar::tab:!selected { margin-top: 2px;}")
+                           u"border-radius: 5px;"
+                           u"border: 2px solid rgb(25, 25, 35);}\n"
+                           u"QTabBar::tab { background-color: rgb(25,25,35); "
+                           u"color: rgb(125, 125, 150);"
+                           u"border: 2px solid rgb(90,90,100); border-bottom-color: rgb(90,90,100);"
+                           u"border-top-left-radius: 4px; "
+                           u"border-top-right-radius: 4px; min-width: 8ex; padding: 2px;}\n"
+                           u"QTabBar::tab:selected, QTabBar::tab:hover { "
+                           u"background: rgb(90,90,115);"
+                           u"color: rgb(25, 25, 35);}"
+                           u"QTabBar::tab:selected { border-color: rgb(30,30,40); border-bottom-color:rgb(40,40,50); }"
+                           u"QTabBar::tab:!selected { margin-top: 2px;}")
 
     # def enterEvent(self, event):
     #     self.clicked.emit({"name": self.objectName(), "action":"Enter"})
@@ -497,6 +516,32 @@ class TabView_UI(QMainWindow):
         # self.ChatBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
         # self.ChatBox.setStyleSheet(
         #     #  u"QGroupBox{"
+        #     # "border: 1px solid gray;"
+        #     # "border-color: #FF17365D;"
+        #     # # "margin-top: 27px;"
+        #     # "font-size: 14px;"
+        #     # "border-radius: 15px;"
+        #     # "}"
+        #     "QGroupBox::title"
+        #     "{"
+        #     "border-top-left-radius: 9px;"
+        #     "border-top-right-radius: 9px;"
+        #     "padding: 2px 82px;"
+        #     "background-color: #FF17365D;"
+        #     "color: rgb(255, 255, 255);"
+        #     "}")
+        # self.ChatBox.setLayout(self.verticalLayout2)
+        #
+        # self.Chat = QListWidget(self.ChatBox)  # chat
+        # self.verticalLayout2.addWidget(self.Chat)
+        #
+        # self.Entry = QLineEdit(self.ChatBox)
+        # self.Entry.setMinimumSize(QSize(0, 40))
+        # self.verticalLayout2.addWidget(self.Entry)
+        #
+        # self.chatToolBar = QToolBar("Chat")
+        # self.addToolBar(Qt.RightToolBarArea, self.chatToolBar)
+        # self.chatToolBar.addWidget(self.ChatBox)
 
     def _createContextMenu(self):
         # Setting contextMenuPolicy
