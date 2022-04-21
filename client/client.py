@@ -512,6 +512,7 @@ def mouse_and_keyboard_hook():
             if kb.flags == 16 or kb.flags == 144 or not BLOCK_INPUT:
                 # call the next hook unless you want to block it
                 return windll.user32.CallNextHookEx(kb_hook, nCode, wParam, lParam)
+        alert()
         return 1
         # print(f"vkCode - {kb.vkCode}, scanCode - {kb.scanCode}, flags - {kb.flags}")
 
@@ -532,14 +533,6 @@ def mouse_and_keyboard_hook():
 
     while True:
         msg = win32gui.GetMessage(None, 0, 0)
-
-
-def alert(sock):
-    if sock:
-        msg = "ALERT"
-        msg_len = len(msg)
-        sock.send((str(msg_len) + ' ' * (64 - len(str(msg_len)))).encode())
-        sock.send(msg.encode())
 
 
 if __name__ == '__main__':

@@ -286,50 +286,16 @@ def StartScreenSharing(comp):
                 return
 
 
-def handle_client_msg(addr):
-    conn = connections[addr]['handle_msg_conn']
-    while True:
-        try:
-            msg = get_msg(conn)
-            if not msg:
-                print(f"handle_client_msg1: {addr} disconnected")
-                Thread(target=Disconnect, args=(addr,), daemon=True).start()
-                break
-            if msg['type'] == "alert":
-                connections[addr]['comp'].listWidget2.addItem(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
-                print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
-        except ConnectionResetError or OSError:
-            print(f"handle_client_msg2: {addr} disconnected")
-            Thread(target=Disconnect, args=(addr,), daemon=True).start()
-            break
-
-
-def chat_massages(addr):
-    conn = connections[addr]['chat_msg_conn']
-    while True:
-        try:
-            msg = get_msg(conn)
-            if not msg:
-                print(f"chat1: {addr} disconnected")
-                Thread(target=Disconnect, args=(addr,), daemon=True).start()
-                break
-            if msg['type'] == "chat":
-                connections[addr]['comp'].listWidget1.addItem(msg['message'])
-        except ConnectionResetError or OSError:
-            print(f"chat2: {addr} disconnected")
-            Thread(target=Disconnect, args=(addr,), daemon=True).start()
-            break
-
 class MainWindow(UI.MainWindow_UI):
     def __init__(self, socket):
         super(MainWindow, self).__init__()
-        self.sock = socket
+        self.server = socket
         self.lock = threading.Lock()
         self.column_limit = 2
         self.row_limit = 2
         self.show()
         self.listener_thread = QThread()
-        self.listener = Listener(self.sock)
+        self.listener = Listener(self.server)
         self.listener.moveToThread(self.listener_thread)
         self.listener_thread.started.connect(self.listener.run)
         self.listener.finished.connect(self.listener_thread.quit)
@@ -375,7 +341,7 @@ class MainWindow(UI.MainWindow_UI):
         connections[addr]['handle_msg_sock'].listen(1)
         send_msg(connections[addr]['conn'], 'message', port=port)
         connections[addr].update({'handle_msg_conn': connections[addr]['handle_msg_sock'].accept()[0]})
-        connections[addr].update({'handle_msg_thread': Thread(target=handle_client_msg, args=(addr,), daemon=True)})
+        connections[addr].update({'handle_msg_thread': Thread(target=self.handle_client_msg, args=(addr,), daemon=True)})
         connections[addr]['handle_msg_thread'].start()
 
         connections[addr].update({'block_input': False})
@@ -428,16 +394,17 @@ class MainWindow(UI.MainWindow_UI):
                         # #               u"}")
                         # tab.label.setMinimumSize(QSize(240, 135))
                         # tab.listWidget.addItem('abcd')
-                        self.tab_view.tabWidget.addTab(connections[addr]['comp'], f'{addr}')
+                        self.tab_view.tabWidget.addTab(connections[addr]['comp'], connections[addr]['name'])
                         self.tab_view.blockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), True))
                         self.tab_view.unblockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), False))
                         self.tab_view.shareScreenAction.triggered.connect(lambda: StartScreenSharing(self.tab_view.tabWidget.currentWidget()))
+                        self.tab_view.chatButton.clicked.connect(lambda: self.Chat(self.tab_view.tabWidget.currentWidget()))
                         for address in connections:
                             connections[address]['comp'].disconnect()
                             connections[address]['comp'].setMaximumSize(QSize(10000, 10000))
                             connections[address]['comp'].clicked.connect(self.start_controlling)
                             if address != addr:
-                                self.tab_view.tabWidget.addTab(connections[address]['comp'], f'{address}')
+                                self.tab_view.tabWidget.addTab(connections[address]['comp'], connections[address]['name'])
 
                         WINDOWS['tab_view'] = self.tab_view
                         WINDOWS['tab_view'].show()
@@ -551,6 +518,24 @@ class MainWindow(UI.MainWindow_UI):
         kb_listener.start()
 
         connections[addr]['control_thread'].update({'mouse_listener': mouse_listener, 'kb_listener': kb_listener})
+
+    def handle_client_msg(self, addr):
+        conn = connections[addr]['handle_msg_conn']
+        while True:
+            try:
+                msg = get_msg(conn)
+                print(msg)
+                if not msg:
+                    print(f"handle_client_msg1: {addr} disconnected")
+                    Thread(target=Disconnect, args=(addr,), daemon=True).start()
+                    break
+                if msg['type'] == "alert":
+                    # print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
+                    self.tab_view.alerts.addItem(f"ALERT! ALERT! {addr} {msg['alert']}")
+            except ConnectionResetError or OSError:
+                print(f"handle_client_msg2: {addr} disconnected")
+                Thread(target=Disconnect, args=(addr,), daemon=True).start()
+                break
 
 
     def Chat(self, comp):
