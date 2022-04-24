@@ -8,7 +8,7 @@ import win32api, win32gui, win32ui, win32con, atexit
 from ctypes import *
 from ctypes.wintypes import DWORD, WPARAM, LPARAM
 from threading import Thread
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QLineEdit
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QLineEdit, QFileDialog
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
 from pynput import mouse, keyboard
@@ -287,7 +287,7 @@ class ShareScreen(UI.ShareScreenWindow):
 
 
 class BlockScreen(UI.ShareScreenWindow):
-    def __init__(self, block, img=None):
+    def __init__(self, block):
         global WINDOWS
         super(BlockScreen, self).__init__()
         WINDOWS['block_screen'] = self
@@ -304,11 +304,13 @@ class BlockScreen(UI.ShareScreenWindow):
         send_msg(SOCKETS['admin'], 'bind', address=(SOCKETS['admin'].getsockname()[0], port))
         conn, addr = block_screen_sock.accept()
         img_len = conn.recv(16)
+        msg = b''
         print(img_len)
-        img = conn.recv(eval(img_len.decode()))
-        print(len(img))
+        while img_len:
+            msg += conn.recv(eval(img_len.decode()))
+            img_len = conn.recv(16)
         pixmap = QPixmap()
-        pixmap.loadFromData(decompress(img))
+        pixmap.loadFromData(decompress(msg))
         pixmap.scaled(self.widget.width(), self.widget.height(),
                       Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.widget.setScaledContents(True)

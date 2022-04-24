@@ -13,7 +13,7 @@ from PIL import Image
 # PyQt5
 import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QSizePolicy, \
-    QSpacerItem, QVBoxLayout, QHBoxLayout, QWidgetItem, QSpacerItem, QTabWidget, QGridLayout, QFrame
+    QSpacerItem, QVBoxLayout, QHBoxLayout, QWidgetItem, QSpacerItem, QTabWidget, QGridLayout, QFrame, QFileDialog
 from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor
 from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
 from client_ui import client_ui as UI
@@ -639,23 +639,30 @@ class MainWindow(UI.MainWindow_UI):
                         connections[addr].pop('sharing_sock')
                         connections[addr]['sharing_thread'].join()
                     send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
+                    block_input(comp, True)
                     connections[addr]['screen_sharing'] = False
                     connections[addr]['screen_sharing_thread'].join()
                     connections[addr].pop('screen_sharing_thread')
                     block_screen_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
                     block_screen_sock.connect(tuple(msg['address']))
-                    img = Image.open(r'C:\Users\D451\Python Projects\class_management\client\pic.jpg')
-                    new_scale = (int(img.size[0] * 0.5), int(img.size[1] * 0.5))  # compress the image with scale 0.5
-                    img = img.resize(new_scale, Image.ANTIALIAS)
-                    img_bytes = io.BytesIO()
-                    # optimize the image and convert it to bytes
-                    img.save(img_bytes, format='JPEG', optimize=True, quality=80)
-                    msg = compress(img_bytes.getvalue(), 9)
+                    file_name, _ = QFileDialog.getOpenFileName(self, 'Open Image File', r"<Default dir>", "Image files (*.jpg *.jpeg *.gif *png)")
+                    with open(file_name, 'rb') as f:
+                        data = f.read()
+                        msg = compress(data, 9)
+                        f.close()
                     msg_len = len(msg)
+                    print(msg_len)
+                    while msg_len > 50000:
+                        header = str(50000) + ' ' * (16 - len(str(50000)))
+                        block_screen_sock.send(header.encode())
+                        block_screen_sock.send(msg[:50000])
+                        msg_len = msg_len - 50000
+                        msg = msg[50000:]
                     header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
                     print(header)
                     block_screen_sock.send(header.encode())
-                    block_screen_sock.send(msg)
+                    block_screen_sock.send(msg[:msg_len])
+                    block_screen_sock.close()
                 return
 
 
