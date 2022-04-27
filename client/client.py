@@ -10,7 +10,7 @@ from ctypes.wintypes import DWORD, WPARAM, LPARAM
 from threading import Thread
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QLineEdit, QFileDialog
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
+from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal, QDir
 from pynput import mouse, keyboard
 from pynput.mouse import Button
 from pynput.keyboard import Key
@@ -20,6 +20,7 @@ import json
 import cv2
 from client_ui import client_ui as UI
 import admin
+import os
 
 
 def get_open_port():
@@ -303,12 +304,17 @@ class BlockScreen(UI.ShareScreenWindow):
         block_screen_sock.listen(1)
         send_msg(SOCKETS['admin'], 'bind', address=(SOCKETS['admin'].getsockname()[0], port))
         conn, addr = block_screen_sock.accept()
-        img_len = conn.recv(16)
-        msg = b''
-        print(img_len)
-        while img_len:
-            msg += conn.recv(eval(img_len.decode()))
+        try:
             img_len = conn.recv(16)
+            msg = b''
+            print(img_len)
+            while img_len:
+                conn.send('1'.encode())
+                msg += conn.recv(eval(img_len.decode('utf-8')))
+                print(len(msg))
+                img_len = conn.recv(16)
+        except ConnectionAbortedError:
+            pass
         pixmap = QPixmap()
         pixmap.loadFromData(decompress(msg))
         pixmap.scaled(self.widget.width(), self.widget.height(),

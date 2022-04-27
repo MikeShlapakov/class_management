@@ -15,8 +15,9 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QSizePolicy, \
     QSpacerItem, QVBoxLayout, QHBoxLayout, QWidgetItem, QSpacerItem, QTabWidget, QGridLayout, QFrame, QFileDialog
 from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor
-from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal
+from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal, QDir
 from client_ui import client_ui as UI
+import os
 
 WINDOWS = {}
 connections = {}  # {'addr': {'conn': conn,'comp_num':Computer}]}
@@ -654,13 +655,15 @@ class MainWindow(UI.MainWindow_UI):
                     print(msg_len)
                     while msg_len > 50000:
                         header = str(50000) + ' ' * (16 - len(str(50000)))
-                        block_screen_sock.send(header.encode())
+                        block_screen_sock.send(header.encode('utf-8'))
+                        block_screen_sock.recv(1)
+                        time.sleep(0.05)
                         block_screen_sock.send(msg[:50000])
                         msg_len = msg_len - 50000
                         msg = msg[50000:]
                     header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
                     print(header)
-                    block_screen_sock.send(header.encode())
+                    block_screen_sock.send(header.encode('utf-8'))
                     block_screen_sock.send(msg[:msg_len])
                     block_screen_sock.close()
                 return
