@@ -326,6 +326,40 @@ class BlockScreen(UI.ShareScreenWindow):
         conn.close()
 
 
+class RecvFile():
+    def __init__(self):
+        global WINDOWS
+        super(RecvFile, self).__init__()
+        sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+        port = get_open_port()
+        sock.bind((SOCKETS['admin'].getsockname()[0], port))
+        sock.listen(1)
+        send_msg(SOCKETS['admin'], 'bind', address=(SOCKETS['admin'].getsockname()[0], port))
+        conn, addr = sock.accept()
+        msg = get_msg(conn)
+        if not msg or msg['type']!='file_name' :
+            return
+        file_name = eval(msg['name']).decode(msg['encoder'])
+        msg = get_msg(conn)
+        if not msg or msg['type'] != 'encoder':
+            return
+        encoder = msg['encoder']
+        msg_len = conn.recv(16)
+        msg = b''
+        while msg_len:
+            print(msg_len)
+            msg += conn.recv(eval(msg_len.decode()))
+            time.sleep(0.02)
+            msg_len = conn.recv(16)
+            print(msg_len)
+            print(msg_len.decode())
+        # msg = decompress(msg).decode()
+        with open(f'{os.path.split(__file__)[0]}/{file_name}', 'wb') as f:#, encoding=encoder) as f:
+            f.write(msg)
+        sock.close()
+        conn.close()
+
+
 def controller():
     global SOCKETS
     sock = SOCKETS['control_sock']
@@ -402,6 +436,7 @@ class AdminHandle(QObject):
     screenShare = pyqtSignal(bool)
     shareScreen = pyqtSignal(bool)
     blockScreen = pyqtSignal(bool)
+    receiveFile = pyqtSignal()
     finished = pyqtSignal()
 
     def __init__(self):
@@ -422,6 +457,8 @@ class AdminHandle(QObject):
                     self.shareScreen.emit(msg['share'])
                 if msg['type'] == 'block_screen':
                     self.blockScreen.emit(msg['block'])
+                if msg['type'] == 'share_file':
+                    self.receiveFile.emit()
         except ConnectionResetError:
             print("admin_msg_sock stopped: admin disconnected")
         except Exception as e:
@@ -476,6 +513,7 @@ class Connect(QObject):
         self.admin_handle.screenShare.connect(StartShareScreen)
         self.admin_handle.shareScreen.connect(ShareScreen)
         self.admin_handle.blockScreen.connect(BlockScreen)
+        self.admin_handle.receiveFile.connect(RecvFile)
         self.admin_handle.finished.connect(self.admin_handle_thread.quit)
         self.admin_handle.finished.connect(self.admin_handle.deleteLater)
         self.admin_handle_thread.finished.connect(self.admin_handle_thread.deleteLater)
