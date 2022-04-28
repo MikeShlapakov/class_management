@@ -35,19 +35,19 @@ class ComputerScreen(QFrame):
         self.setMaximumSize(QSize(480, 270))
         self.setCursor(Qt.PointingHandCursor)
         layout = QGridLayout()
-        self.top_left = QLabel('top_left')
+        self.top_left = QLabel()
         self.top_left.setObjectName('top_left')
         layout.addWidget(self.top_left,0,0)
 
-        self.top_right = QLabel('top_right')
+        self.top_right = QLabel()
         self.top_right.setObjectName('top_right')
         layout.addWidget(self.top_right,0,1)
 
-        self.bottom_left = QLabel('bottom_left')
+        self.bottom_left = QLabel()
         self.bottom_left.setObjectName('bottom_left')
         layout.addWidget(self.bottom_left,1,0)
 
-        self.bottom_right = QLabel('bottom_right')
+        self.bottom_right = QLabel()
         self.bottom_right.setObjectName('bottom_right')
         layout.addWidget(self.bottom_right,1,1)
 
@@ -357,7 +357,7 @@ class MainWindow_UI(QMainWindow):
         self.setObjectName(u"MainWindow")
         self.resize(1000, 700)
         palette = QPalette()
-        brush = QBrush(QColor(30, 30, 40, 255))
+        brush = QBrush(QColor(30, 30, 40))
         palette.setBrush(QPalette.Active, QPalette.Window, brush)
         palette.setBrush(QPalette.Inactive, QPalette.Window, brush)
         palette.setBrush(QPalette.Disabled, QPalette.Window, brush)
@@ -388,6 +388,19 @@ class MainWindow_UI(QMainWindow):
         self.gridLayout_2 = QGridLayout(self.widget)
         self.gridLayout_2.setObjectName(u"gridLayout_2")
 
+        self.waitingLabal = QLabel('Waiting for connection...')
+        font = QFont()
+        font.setFamily(u"Calibri")
+        font.setPointSize(24)
+        font.setBold(True)
+        font.setWeight(96)
+        self.waitingLabal.setFont(font)
+        self.waitingLabal.setAlignment(Qt.AlignCenter)
+        self.waitingLabal.setStyleSheet(u"QLabel{\n"
+                                 "	color: rgb(30, 30, 40);\n"
+                                 "}\n")
+        self.gridLayout_2.addWidget(self.waitingLabal)
+
         self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
 
         self.setCentralWidget(self.centralwidget)
@@ -400,10 +413,50 @@ class MainWindow_UI(QMainWindow):
         self.setStatusBar(self.statusbar)
 
         self.retranslateUi(self)
+        self._createActions()
+        self._createToolBars()
 
         QMetaObject.connectSlotsByName(self)
 
     # setupUi
+    def _createActions(self):
+        # File actions
+        self.blockInputButton = CustomButton(self.centralwidget, "BLOCK INPUT ALL")
+        self.unblockInputButton = CustomButton(self.centralwidget, "UNBLOCK INPUT ALL")
+        self.blockScreenButton = CustomButton(self.centralwidget, "BLOCK SCREEN ALL")
+        self.shareScreenButton = CustomButton(self.centralwidget, "SHARE SCREEN ALL")
+        self.chatButton = CustomButton(self.centralwidget, "CHAT ALL")
+        self.shareFileButton = CustomButton(self.centralwidget, "SHARE FILE ALL")
+
+    def _createToolBars(self):
+        # File toolbar
+        self.toolBar = QToolBar("TOOLS")
+        self.addToolBar(Qt.LeftToolBarArea, self.toolBar)
+        self.logBox = QGroupBox('LOG', self)  # alert box
+        self.logBox.setMaximumSize(QSize(200, 400))
+        # self.alertBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
+        self.verticalLayout3 = QVBoxLayout(self.logBox)
+        self.logBox.setStyleSheet("QGroupBox::title"
+                                    "{"
+                                    "border-top-left-radius: 9px;"
+                                    "border-top-right-radius: 9px;"
+                                    "padding: 2px 82px;"
+                                    "background-color: rgb(65, 65, 90);"
+                                    "font-weight:bold;"
+                                    "color: rgb(30, 30, 40);"
+                                    "}")
+
+        self.logs = QListWidget(self.logBox)
+        self.verticalLayout3.addWidget(self.logs)
+
+        self.toolBar.addWidget(self.blockInputButton)
+        self.toolBar.addWidget(self.unblockInputButton)
+        self.toolBar.addWidget(self.blockScreenButton)
+        self.toolBar.addWidget(self.shareScreenButton)
+        self.toolBar.addWidget(self.chatButton)
+        self.toolBar.addWidget(self.shareFileButton)
+        self.toolBar.addWidget(self.logBox)
+
 
     def retranslateUi(self, Window):
         Window.setWindowTitle(QCoreApplication.translate("MainWindow", u"My Class", None))
@@ -467,23 +520,11 @@ class TabView_UI(QMainWindow):
         self.shareFileButton = CustomButton(self.centralwidget, "SHARE FILE")
         self.back_to_main_btn = CustomButton(self.centralwidget, "VIEW ALL")
 
-        # # Edit actions
-        # self.copyAction = QAction(QIcon(":edit-copy.svg"), "&Copy", self)
-        # self.pasteAction = QAction(QIcon(":edit-paste.svg"), "&Paste", self)
-        # self.cutAction = QAction(QIcon(":edit-cut.svg"), "C&ut", self)
 
     def _createToolBars(self):
         # File toolbar
         self.toolBar = QToolBar("TOOLS")
         self.addToolBar(Qt.LeftToolBarArea, self.toolBar)
-        # fileToolBar.addAction(self.blockInputAction)
-        # fileToolBar.addAction(self.unblockInputAction)
-        # fileToolBar.addAction(self.saveAction)
-        # fileToolBar.addAction(self.exitAction)
-        # fileToolBar.addWidget(self.newButton)
-        # fileToolBar.addWidget(self.openButton)
-        # fileToolBar.addWidget(self.saveButton)
-        # fileToolBar.addWidget(self.exitButton)
         self.alertBox = QGroupBox('ALERTS', self)  # alert box
         self.alertBox.setMaximumSize(QSize(200, 400))
         # self.alertBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
@@ -509,39 +550,6 @@ class TabView_UI(QMainWindow):
         self.toolBar.addWidget(self.shareFileButton)
         self.toolBar.addWidget(self.alertBox)
         self.toolBar.addWidget(self.back_to_main_btn)
-
-        # self.verticalLayout2 = QVBoxLayout()
-        #
-        # self.ChatBox = QGroupBox('CHAT', self)
-        # self.ChatBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
-        # self.ChatBox.setStyleSheet(
-        #     #  u"QGroupBox{"
-        #     # "border: 1px solid gray;"
-        #     # "border-color: #FF17365D;"
-        #     # # "margin-top: 27px;"
-        #     # "font-size: 14px;"
-        #     # "border-radius: 15px;"
-        #     # "}"
-        #     "QGroupBox::title"
-        #     "{"
-        #     "border-top-left-radius: 9px;"
-        #     "border-top-right-radius: 9px;"
-        #     "padding: 2px 82px;"
-        #     "background-color: #FF17365D;"
-        #     "color: rgb(255, 255, 255);"
-        #     "}")
-        # self.ChatBox.setLayout(self.verticalLayout2)
-        #
-        # self.Chat = QListWidget(self.ChatBox)  # chat
-        # self.verticalLayout2.addWidget(self.Chat)
-        #
-        # self.Entry = QLineEdit(self.ChatBox)
-        # self.Entry.setMinimumSize(QSize(0, 40))
-        # self.verticalLayout2.addWidget(self.Entry)
-        #
-        # self.chatToolBar = QToolBar("Chat")
-        # self.addToolBar(Qt.RightToolBarArea, self.chatToolBar)
-        # self.chatToolBar.addWidget(self.ChatBox)
 
     def _createContextMenu(self):
         # Setting contextMenuPolicy
@@ -632,6 +640,6 @@ if __name__ == "__main__":
 
     e.tabWidget.addTab(comp, '123')
     e.tabWidget.addTab(comp2, 'abs')
-    # e = ChatBox_UI()
+    e = MainWindow_UI()
     e.show()
     sys.exit(app.exec_())

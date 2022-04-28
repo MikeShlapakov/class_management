@@ -177,7 +177,6 @@ def send_screenshot(rect, sock):
         msg_len = len(msg)
         header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
         sock.send(header.encode())
-        print(header)
         sock.send(msg)
         while True:
             try:
@@ -186,7 +185,7 @@ def send_screenshot(rect, sock):
                 new_img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
                 new_scale = (int(new_img.size[0] * scale), int(new_img.size[1] * scale))  # compress the image with scale 0.5
                 new_img = new_img.resize(new_scale, Image.ANTIALIAS)
-                diff, index = imagesDifference(prev_img, new_img)
+                # diff, index = imagesDifference(prev_img, new_img)
                 img_bytes = io.BytesIO()
                 new_img.save(img_bytes, format='JPEG', optimize=True,
                          quality=80)  # optimize the image and convert it to bytes
@@ -194,11 +193,9 @@ def send_screenshot(rect, sock):
                 msg = compress(img_bytes.getvalue(), 9)
                 msg_len = len(msg)
                 header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
-                sock.send(header.encode())
-                # print(header)
+                sock.send(header.encode('utf-8'))
                 sock.send(msg)
-                # print(len(msg), len(index))
-                prev_img = new_img
+
             except (ConnectionResetError, WindowsError) as e:
                 print("screen-sharing: admin disconnected", e)
                 if e.winerror == 10040:

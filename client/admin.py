@@ -14,10 +14,11 @@ from PIL import Image
 import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QLabel, QPushButton, QAction, QMessageBox, QSizePolicy, \
     QSpacerItem, QVBoxLayout, QHBoxLayout, QWidgetItem, QSpacerItem, QTabWidget, QGridLayout, QFrame, QFileDialog
-from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor
+from PyQt5.QtGui import QPixmap, QImage, QFont, QCursor, QColor
 from PyQt5.QtCore import QRect, Qt, QSize, QObject, QThread, pyqtSignal, QDir
 from client_ui import client_ui as UI
 import os
+import ast
 
 WINDOWS = {}
 connections = {}  # {'addr': {'conn': conn,'comp_num':Computer}]}
@@ -136,7 +137,15 @@ class Listener(QObject):
                     except TypeError:
                         self.client_disconnected.emit(tuple(msg['address']))
             if msg['type'] == 'chat':
-                WINDOWS['chat'].listWidget.addItem(msg['msg'])
+                if WINDOWS.get('chat'):
+                    print(WINDOWS['chat'])
+                    WINDOWS['chat'].listWidget.addItem(msg['msg'])
+                # else:
+                #     for addr in connections:
+                #         print(msg['msg'].split(':'))
+                #         if connections[addr]['name'] == msg['msg'].split(':')[0]:
+                #             WINDOWS['main_window'].Chat(connections[addr]['comp'])
+                #             print('asd')
         self.finished.emit()
 
 
@@ -221,30 +230,11 @@ def screen_sharing(addr, conn, num):
                           Qt.SmoothTransformation)
             # label = connections[addr]['comp'].findChild(QLabel, num)
             for label in [connections[addr]['comp'].top_left, connections[addr]['comp'].top_right, connections[addr]['comp'].bottom_left, connections[addr]['comp'].bottom_right]:
-                # print(label.objectName
                 if label.objectName() == num:
                     label.setScaledContents(True)
                     label.setPixmap(QPixmap(pixmap))
                     label.setAlignment(Qt.AlignCenter)
-                    # connections[addr]['comp'].top_left.setScaledContents(True)
-                    # connections[addr]['comp'].top_left.setPixmap(QPixmap(pixmap))
-                    # connections[addr]['comp'].top_left.setAlignment(Qt.AlignCenter)
                     break
-            # if num == 'top_right':
-            #     connections[addr]['comp'].top_right.setScaledContents(True)
-            #     connections[addr]['comp'].top_right.setPixmap(QPixmap(pixmap))
-            #     connections[addr]['comp'].top_right.setAlignment(Qt.AlignCenter)
-            #     continue
-            # if num == 'bottom_left':
-            #     connections[addr]['comp'].bottom_left.setScaledContents(True)
-            #     connections[addr]['comp'].bottom_left.setPixmap(QPixmap(pixmap))
-            #     connections[addr]['comp'].bottom_left.setAlignment(Qt.AlignCenter)
-            #     continue
-            # if num == 'bottom_right':
-            #     connections[addr]['comp'].bottom_right.setScaledContents(True)
-            #     connections[addr]['comp'].bottom_right.setPixmap(QPixmap(pixmap))
-            #     connections[addr]['comp'].bottom_right.setAlignment(Qt.AlignCenter)
-            #     continue
 
         except (ConnectionResetError,WindowsError) as e:
             print(f"screen_sharing: {addr} disconnected, {e}")
@@ -412,6 +402,7 @@ class MainWindow(UI.MainWindow_UI):
         self.group_view()
 
     def group_view(self):
+        self.waitingLabal.setParent(None)
         for addr in connections:
             num = eval(connections[addr]['comp'].objectName().strip('comp'))
             for row in range(self.row_limit):
