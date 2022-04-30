@@ -587,10 +587,45 @@ class ChatBox_UI(QMainWindow):
         self.setCentralWidget(self.groupBox)
 
 
-class ShareScreenWindow(QMainWindow):
+class ShareScreenWindow(QFrame):
+    clicked = pyqtSignal(dict)
+
+    def __init__(self, parent=None):
+        super(ShareScreenWindow, self).__init__(parent)
+        self.setObjectName('frame')
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.setSizePolicy(sizePolicy)
+
+        layout = QGridLayout()
+        self.top_left = QLabel("1")
+        self.top_left.setObjectName('top_left')
+        layout.addWidget(self.top_left,0,0)
+
+        self.top_right = QLabel("2")
+        self.top_right.setObjectName('top_right')
+        layout.addWidget(self.top_right,0,1)
+
+        self.bottom_left = QLabel("3")
+        self.bottom_left.setObjectName('bottom_left')
+        layout.addWidget(self.bottom_left,1,0)
+
+        self.bottom_right = QLabel("4")
+        self.bottom_right.setObjectName('bottom_right')
+        layout.addWidget(self.bottom_right,1,1)
+
+        layout.setSpacing(0)
+        self.setLayout(layout)
+        self.showMaximized()
+        self.setWindowFlags(
+            Qt.WindowStaysOnTopHint |
+            Qt.FramelessWindowHint
+        )
+
+
+class BlockScreenWindow(QMainWindow):
 
     def __init__(self):
-        super(ShareScreenWindow, self).__init__()
+        super(BlockScreenWindow, self).__init__()
 
         self.setWindowTitle("My App")
 
@@ -603,6 +638,7 @@ class ShareScreenWindow(QMainWindow):
             Qt.WindowStaysOnTopHint |
             Qt.FramelessWindowHint
         )
+
 
 
 if __name__ == "__main__":

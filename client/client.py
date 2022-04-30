@@ -234,8 +234,8 @@ def StartShareScreen(share):
         THREADS[f'{rect}'].start()
 
 
-def screen_sharing():
-    sock = SOCKETS['share_sock']
+def screen_sharing(rect):
+    sock = SOCKETS[f'{rect}_sock']
     pixmap = QPixmap()
     while True:
         try:
@@ -245,16 +245,17 @@ def screen_sharing():
                 continue
             # print(img_len)
             pixmap.loadFromData(decompress(img))
-            pixmap.scaled(WINDOWS['share_screen'].widget.width(), WINDOWS['share_screen'].widget.height(),
-                          Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            WINDOWS['share_screen'].widget.setScaledContents(True)
-            WINDOWS['share_screen'].widget.setPixmap(QPixmap(pixmap))
-            WINDOWS['share_screen'].widget.setAlignment(Qt.AlignCenter)
+            # pixmap.scaled(WINDOWS['share_screen'].widget.width(), WINDOWS['share_screen'].widget.height(),
+            #               Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            for label in [WINDOWS['share_screen'].top_left, WINDOWS['share_screen'].top_right, WINDOWS['share_screen'].bottom_left, WINDOWS['share_screen'].bottom_right]:
+                if label.objectName() == rect:
+                    label.setScaledContents(True)
+                    label.setPixmap(QPixmap(pixmap))
+                    label.setAlignment(Qt.AlignCenter)
+                    break
         except (ConnectionResetError, WindowsError) as e:
             print(f"screen_sharing stopped: {sock} disconnected", e)
             if e.winerror == 10038:
-                # if WINDOWS['share_screen'].isVisible():
-                #   WINDOWS['share_screen'].close()
                 break
         except Exception as e:
             print(f'screen_sharing stopped: {e}')
@@ -267,24 +268,26 @@ class ShareScreen(UI.ShareScreenWindow):
         WINDOWS['share_screen'] = self
         WINDOWS['share_screen'].show()
         if not share:
-            if SOCKETS.get('share_sock'):
+            for i in ['top_left', 'top_right', 'bottom_left', 'bottom_right']:
+            # if SOCKETS.get('share_sock'):
                 print('share stopped')
-                SOCKETS['share_sock'].close()
-                SOCKETS.pop('share_sock')
-                THREADS['share_thread'].join()
-                THREADS.pop('share_thread')
+                SOCKETS[f'{i}_sock'].close()
+                SOCKETS.pop(f'{i}_sock')
+                THREADS[f'{i}_thread'].join()
+                THREADS.pop(f'{i}_thread')
                 if WINDOWS['share_screen'].isVisible():
                     WINDOWS['share_screen'].close()
             return
-        SOCKETS.update({'share_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
-        port = get_open_port()
-        SOCKETS['share_sock'].bind((SOCKETS['admin'].getsockname()[0], port))
-        send_msg(SOCKETS['admin'], 'bind', address=SOCKETS['share_sock'].getsockname())
-        THREADS.update({'share_thread':Thread(target=screen_sharing, daemon=True)})
-        THREADS['share_thread'].start()
+
+        for i in ['top_left', 'top_right', 'bottom_left', 'bottom_right']:
+            SOCKETS[f'{i}_sock'] = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+            SOCKETS[f'{i}_sock'].bind((SOCKETS['admin'].getsockname()[0], get_open_port()))
+            send_msg(SOCKETS['admin'], 'bind', address=SOCKETS[f'{i}_sock'].getsockname())
+            THREADS[f'{i}_thread'] = Thread(target=screen_sharing, args=(i,), daemon=True)
+            THREADS[f'{i}_thread'].start()
 
 
-class BlockScreen(UI.ShareScreenWindow):
+class BlockScreen(UI.BlockScreenWindow):
     def __init__(self, block):
         global WINDOWS
         super(BlockScreen, self).__init__()
@@ -531,6 +534,10 @@ def Disconnect():
             SOCKETS[sock].close()
         except AttributeError:
             pass
+    for window in WINDOWS:
+        if window in ['block_screen', 'share_screen']:
+            if WINDOWS[window].isVisible():
+                WINDOWS[window].close()
 
 
 class Chat(QObject):
