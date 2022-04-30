@@ -371,10 +371,8 @@ class MainWindow(UI.MainWindow_UI):
         port = get_open_port()
         connections[addr]['screen_sharing_sock'].bind((connections[addr]['conn'].getsockname()[0], port))
         connections[addr]['screen_sharing_sock'].listen(1)
-        print(1)
         send_msg(connections[addr]['conn'], 'message', address=(connections[addr]['conn'].getsockname()[0], port))
         connections[addr]['screen_sharing_conn'] = connections[addr]['screen_sharing_sock'].accept()[0]
-        print(2)
         connections[addr].update({'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr, ), daemon=True)})
         connections[addr]['screen_sharing_thread'].start()
 
@@ -454,6 +452,7 @@ class MainWindow(UI.MainWindow_UI):
                         self.tab_view.unblockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), False))
                         self.tab_view.shareScreenAction.triggered.connect(lambda: StartScreenSharing(self.tab_view.tabWidget.currentWidget()))
                         self.tab_view.blockScreenButton.clicked.connect(lambda: self.BlockScreen(self.tab_view.tabWidget.currentWidget(), True))
+                        self.tab_view.blockScreenButton.clicked.connect(lambda: self.BlockScreen(self.tab_view.tabWidget.currentWidget()))
                         self.tab_view.chatButton.clicked.connect(lambda: self.Chat(self.tab_view.tabWidget.currentWidget()))
                         self.tab_view.shareFileButton.clicked.connect(lambda: self.ShareFile(self.tab_view.tabWidget.currentWidget()))
                         for address in connections:
@@ -624,9 +623,11 @@ class MainWindow(UI.MainWindow_UI):
 
 
     def BlockScreen(self, comp, block=True):
+    def BlockScreen(self, comp):
         for addr in connections:
             if connections[addr]['comp'] == comp:
-                if connections[addr]['block_screen'] or not block:
+                if connections[addr]['block_screen']:
+                    block_input(comp, False)
                     send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=False, img=None)
                     connections[addr]['block_screen'] = False
                     connections[addr]['screen_sharing'] = True
@@ -635,7 +636,11 @@ class MainWindow(UI.MainWindow_UI):
                         {'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr,), daemon=True)})
                     connections[addr]['screen_sharing_thread'].start()
                     return
+                file_name, _ = QFileDialog.getOpenFileName(self, 'Open Image File', r"<Default dir>", "Image files (*.jpg *.jpeg *.gif *png)")
+                if not file_name or not _:
+                    return
                 connections[addr]['block_screen'] = True
+                # block_input(comp, True)
                 send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=True)
                 msg = get_msg(connections[addr]['conn'])
                 if not msg:
@@ -647,14 +652,13 @@ class MainWindow(UI.MainWindow_UI):
                         connections[addr]['sharing_sock'].close()
                         connections[addr].pop('sharing_sock')
                         connections[addr]['sharing_thread'].join()
-                    send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
-                    block_input(comp, True)
-                    connections[addr]['screen_sharing'] = False
-                    connections[addr]['screen_sharing_thread'].join()
-                    connections[addr].pop('screen_sharing_thread')
+                    if connections[addr]['screen_sharing']:
+                        send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
+                        connections[addr]['screen_sharing'] = False
+                        connections[addr]['screen_sharing_thread'].join()
+                        connections[addr].pop('screen_sharing_thread')
                     block_screen_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
                     block_screen_sock.connect(tuple(msg['address']))
-                    file_name, _ = QFileDialog.getOpenFileName(self, 'Open Image File', r"<Default dir>", "Image files (*.jpg *.jpeg *.gif *png)")
                     with open(file_name, 'rb') as f:
                         data = f.read()
                         msg = compress(data, 9)
@@ -664,8 +668,6 @@ class MainWindow(UI.MainWindow_UI):
                     while msg_len > 50000:
                         header = str(50000) + ' ' * (16 - len(str(50000)))
                         block_screen_sock.send(header.encode('utf-8'))
-                        block_screen_sock.recv(1)
-                        time.sleep(0.05)
                         block_screen_sock.send(msg[:50000])
                         msg_len = msg_len - 50000
                         msg = msg[50000:]
@@ -674,6 +676,8 @@ class MainWindow(UI.MainWindow_UI):
                     block_screen_sock.send(header.encode('utf-8'))
                     block_screen_sock.send(msg[:msg_len])
                     block_screen_sock.close()
+                else:
+                    connections[addr]['block_screen'] = False
                 return
 
     def ShareFile(self, comp):

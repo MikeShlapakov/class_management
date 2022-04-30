@@ -301,26 +301,32 @@ class BlockScreen(UI.ShareScreenWindow):
         block_screen_sock.listen(1)
         send_msg(SOCKETS['admin'], 'bind', address=(SOCKETS['admin'].getsockname()[0], port))
         conn, addr = block_screen_sock.accept()
-        try:
-            img_len = conn.recv(16)
-            msg = b''
+        img_len = conn.recv(16)
+        if not img_len:
+            print('block screen stopped')
+            if WINDOWS['block_screen'].isVisible():
+                WINDOWS['block_screen'].close()
+            conn.close()
+            block_screen_sock.close()
+            return
+        img = b''
             print(img_len)
-            while img_len:
-                conn.send('1'.encode())
-                msg += conn.recv(eval(img_len.decode('utf-8')))
-                print(len(msg))
-                img_len = conn.recv(16)
-        except ConnectionAbortedError:
-            pass
+        while img_len:
+            msg = conn.recv(eval(img_len.decode('utf-8')))
+            print(len(msg), eval(img_len.decode('utf-8')))
+            while len(msg) != eval(img_len.decode('utf-8')):
+                msg += conn.recv(eval(img_len.decode('utf-8'))-len(msg))
+            img += msg
+            img_len = conn.recv(16)
         pixmap = QPixmap()
-        pixmap.loadFromData(decompress(msg))
+        pixmap.loadFromData(decompress(img))
         pixmap.scaled(self.widget.width(), self.widget.height(),
                       Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.widget.setScaledContents(True)
         self.widget.setPixmap(QPixmap(pixmap))
         self.widget.setAlignment(Qt.AlignCenter)
-        block_screen_sock.close()
         conn.close()
+        block_screen_sock.close()
 
 
 class RecvFile():
