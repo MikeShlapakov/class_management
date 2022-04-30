@@ -411,6 +411,7 @@ class MainWindow(UI.MainWindow_UI):
         self.unblockInputButton.clicked.connect(
             lambda: block_input('all', False))
         self.blockScreenButton.clicked.connect(self.BlockAllScreens)
+        self.unblockScreenButton.clicked.connect(self.UnblockAllScreens)
         for addr in connections:
             num = eval(connections[addr]['comp'].objectName().strip('comp'))
             for row in range(self.row_limit):
@@ -735,6 +736,19 @@ class MainWindow(UI.MainWindow_UI):
                 block_screen_sock.close()
             else:
                 connections[addr]['block_screen'] = False
+
+
+    def UnblockAllScreens(self):
+        for addr in connections:
+            if connections[addr]['block_screen']:
+                block_input(connections[addr]['comp'], False)
+                send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=False, img=None)
+                connections[addr]['block_screen'] = False
+                connections[addr]['screen_sharing'] = True
+                send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=True)
+                connections[addr].update(
+                    {'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr,), daemon=True)})
+                connections[addr]['screen_sharing_thread'].start()
 
 
     def ShareFile(self, comp):

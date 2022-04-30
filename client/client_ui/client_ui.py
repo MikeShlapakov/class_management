@@ -423,7 +423,8 @@ class MainWindow_UI(QMainWindow):
         # File actions
         self.blockInputButton = CustomButton(self.centralwidget, "BLOCK INPUT ALL")
         self.unblockInputButton = CustomButton(self.centralwidget, "UNBLOCK INPUT ALL")
-        self.blockScreenButton = CustomButton(self.centralwidget, "BLOCK SCREEN ALL")
+        self.blockScreenButton = CustomButton(self.centralwidget, "BLOCK ALL SCREENS")
+        self.unblockScreenButton = CustomButton(self.centralwidget, "UNBLOCK ALL SCREENS")
         self.shareScreenButton = CustomButton(self.centralwidget, "SHARE SCREEN ALL")
         self.chatButton = CustomButton(self.centralwidget, "CHAT ALL")
         self.shareFileButton = CustomButton(self.centralwidget, "SHARE FILE ALL")
@@ -452,6 +453,7 @@ class MainWindow_UI(QMainWindow):
         self.toolBar.addWidget(self.blockInputButton)
         self.toolBar.addWidget(self.unblockInputButton)
         self.toolBar.addWidget(self.blockScreenButton)
+        self.toolBar.addWidget(self.unblockScreenButton)
         self.toolBar.addWidget(self.shareScreenButton)
         self.toolBar.addWidget(self.chatButton)
         self.toolBar.addWidget(self.shareFileButton)
@@ -598,7 +600,7 @@ class ShareScreenWindow(QMainWindow):
         self.setCentralWidget(self.widget)
         self.showMaximized()
         self.setWindowFlags(
-            # Qt.WindowStaysOnTopHint |
+            Qt.WindowStaysOnTopHint |
             Qt.FramelessWindowHint
         )
 
