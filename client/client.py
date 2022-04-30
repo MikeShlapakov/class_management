@@ -269,14 +269,15 @@ class ShareScreen(UI.ShareScreenWindow):
         WINDOWS['share_screen'].show()
         if not share:
             for i in ['top_left', 'top_right', 'bottom_left', 'bottom_right']:
-            # if SOCKETS.get('share_sock'):
-                print('share stopped')
-                SOCKETS[f'{i}_sock'].close()
-                SOCKETS.pop(f'{i}_sock')
-                THREADS[f'{i}_thread'].join()
-                THREADS.pop(f'{i}_thread')
-                if WINDOWS['share_screen'].isVisible():
-                    WINDOWS['share_screen'].close()
+                if SOCKETS.get(f'{i}_sock'):
+                    print('share stopped')
+                    SOCKETS[f'{i}_sock'].close()
+                    SOCKETS.pop(f'{i}_sock')
+                if SOCKETS.get(f'{i}_thread'):
+                    THREADS[f'{i}_thread'].join()
+                    THREADS.pop(f'{i}_thread')
+            if WINDOWS['share_screen'].isVisible():
+                WINDOWS['share_screen'].close()
             return
 
         for i in ['top_left', 'top_right', 'bottom_left', 'bottom_right']:

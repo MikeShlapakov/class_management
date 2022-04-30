@@ -364,6 +364,70 @@ def StartScreenSharing(comp):
             return
 
 
+def StartScreenSharingAll():
+    for addr in connections:
+        if connections[addr]['sharing_screen']:
+            continue
+        send_msg(connections[addr]['handle_msg_conn'], 'share', share=True)
+        connections[addr]['sharing_screen'] = True
+        if connections[addr]['block_screen']:
+            send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=False, img=None)
+            connections[addr]['block_screen'] = False
+        if connections[addr]['screen_sharing']:
+            send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
+            connections[addr]['screen_sharing'] = False
+            connections[addr]['screen_sharing_thread'].join()
+            connections[addr].pop('screen_sharing_thread')
+
+        rects = {'rect' : {'top': 0, 'left': 0, 'width': win32api.GetSystemMetrics(0)//2, 'height': win32api.GetSystemMetrics(1)//2},
+        'rect2' : {'top': 0, 'left': win32api.GetSystemMetrics(0) // 2, 'width': win32api.GetSystemMetrics(0) // 2,
+                'height': win32api.GetSystemMetrics(1) // 2},
+        'rect3' : {'top': win32api.GetSystemMetrics(1) // 2, 'left': 0, 'width': win32api.GetSystemMetrics(0) // 2,
+                'height': win32api.GetSystemMetrics(1) // 2},
+        'rect4' : {'top': win32api.GetSystemMetrics(1) // 2, 'left': win32api.GetSystemMetrics(0) // 2, 'width': win32api.GetSystemMetrics(0) // 2,
+                'height': win32api.GetSystemMetrics(1) // 2}}
+
+        for rect in rects:
+            msg = get_msg(connections[addr]['conn'])
+            if not msg or msg['type']!='bind':
+                send_msg(connections[addr]['handle_msg_conn'], 'share', share=False)
+                connections[addr]['sharing_screen'] = False
+                for rect in ['rect', 'rect2', 'rect3', 'rect4']:
+                    if connections[addr].get(f'{rect}_sock'):
+                        connections[addr][f'{rect}_sock'].close()
+                        connections[addr].pop(f'{rect}_sock')
+                    if connections[addr].get(f'{rect}_thread'):
+                        connections[addr][f'{rect}_thread'].join()
+                        connections[addr].pop(f'{rect}_thread')
+                connections[addr]['screen_sharing'] = True
+                send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=True)
+                connections[addr].update(
+                    {'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr,), daemon=True)})
+                connections[addr]['screen_sharing_thread'].start()
+                break
+            connections[addr].update({f'{rect}_sock': socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)})
+            connections[addr][f'{rect}_sock'].connect(tuple(msg['address']))
+            connections[addr].update({f'{rect}_thread': Thread(target=send_screenshots, args=(rects[rect], addr, tuple(msg['address']), connections[addr][f'{rect}_sock']), daemon=True)})
+            connections[addr][f'{rect}_thread'].start()
+
+
+def StopScreenSharingAll():
+    for addr in connections:
+        if connections[addr]['sharing_screen']:
+            send_msg(connections[addr]['handle_msg_conn'], 'share', share=False)
+            connections[addr]['sharing_screen'] = False
+            for rect in ['rect', 'rect2', 'rect3', 'rect4']:
+                connections[addr][f'{rect}_sock'].close()
+                connections[addr].pop(f'{rect}_sock')
+                connections[addr][f'{rect}_thread'].join()
+                connections[addr].pop(f'{rect}_thread')
+            connections[addr]['screen_sharing'] = True
+            send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=True)
+            connections[addr].update(
+                {'screen_sharing_thread': Thread(target=StartShareScreen, args=(addr,), daemon=True)})
+            connections[addr]['screen_sharing_thread'].start()
+
+
 class MainWindow(UI.MainWindow_UI):
     def __init__(self, socket):
         super(MainWindow, self).__init__()
@@ -438,6 +502,10 @@ class MainWindow(UI.MainWindow_UI):
             lambda: block_input('all', False))
         self.blockScreenButton.clicked.connect(self.BlockAllScreens)
         self.unblockScreenButton.clicked.connect(self.UnblockAllScreens)
+        self.shareScreenButton.clicked.connect(StartScreenSharingAll)
+        self.stopShareScreenButton.clicked.connect(StopScreenSharingAll)
+        # self.chatButton.clicked.connect(lambda: self.Chat(self.tab_view.tabWidget.currentWidget()))
+        # self.shareFileButton.clicked.connect(lambda: self.ShareFile('all'))
         for addr in connections:
             num = eval(connections[addr]['comp'].objectName().strip('comp'))
             for row in range(self.row_limit):

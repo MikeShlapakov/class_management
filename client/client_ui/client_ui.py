@@ -426,6 +426,7 @@ class MainWindow_UI(QMainWindow):
         self.blockScreenButton = CustomButton(self.centralwidget, "BLOCK ALL SCREENS")
         self.unblockScreenButton = CustomButton(self.centralwidget, "UNBLOCK ALL SCREENS")
         self.shareScreenButton = CustomButton(self.centralwidget, "SHARE SCREEN ALL")
+        self.stopShareScreenButton = CustomButton(self.centralwidget, "STOP SHARE SCREEN ALL")
         self.chatButton = CustomButton(self.centralwidget, "CHAT ALL")
         self.shareFileButton = CustomButton(self.centralwidget, "SHARE FILE ALL")
 
@@ -455,6 +456,7 @@ class MainWindow_UI(QMainWindow):
         self.toolBar.addWidget(self.blockScreenButton)
         self.toolBar.addWidget(self.unblockScreenButton)
         self.toolBar.addWidget(self.shareScreenButton)
+        self.toolBar.addWidget(self.stopShareScreenButton)
         self.toolBar.addWidget(self.chatButton)
         self.toolBar.addWidget(self.shareFileButton)
         self.toolBar.addWidget(self.logBox)
@@ -678,6 +680,6 @@ if __name__ == "__main__":
 
     e.tabWidget.addTab(comp, '123')
     e.tabWidget.addTab(comp2, 'abs')
-    e = MainWindow_UI()
+    e = ShareScreenWindow()
     e.show()
     sys.exit(app.exec_())
