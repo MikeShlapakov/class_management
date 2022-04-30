@@ -410,6 +410,7 @@ class MainWindow(UI.MainWindow_UI):
             lambda: block_input('all', True))
         self.unblockInputButton.clicked.connect(
             lambda: block_input('all', False))
+        self.blockScreenButton.clicked.connect(self.BlockAllScreens)
         for addr in connections:
             num = eval(connections[addr]['comp'].objectName().strip('comp'))
             for row in range(self.row_limit):
@@ -689,6 +690,52 @@ class MainWindow(UI.MainWindow_UI):
                 else:
                     connections[addr]['block_screen'] = False
                 return
+
+
+    def BlockAllScreens(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, 'Open Image File', r"<Default dir>",
+                                                   "Image files (*.jpg *.jpeg *.gif *png)")
+        if not file_name or not _:
+            return
+        for addr in connections:
+            connections[addr]['block_screen'] = True
+            # block_input(comp, True)
+            send_msg(connections[addr]['handle_msg_conn'], 'block_screen', block=True)
+            msg = get_msg(connections[addr]['conn'])
+            if not msg:
+                continue
+            if msg['type'] == 'bind':
+                if connections[addr]['sharing_screen']:
+                    send_msg(connections[addr]['handle_msg_conn'], 'share', share=False)
+                    connections[addr]['sharing_screen'] = False
+                    connections[addr]['sharing_sock'].close()
+                    connections[addr].pop('sharing_sock')
+                    connections[addr]['sharing_thread'].join()
+                if connections[addr]['screen_sharing']:
+                    send_msg(connections[addr]['handle_msg_conn'], 'screen_share', share=False)
+                    connections[addr]['screen_sharing'] = False
+                    connections[addr]['screen_sharing_thread'].join()
+                    connections[addr].pop('screen_sharing_thread')
+                block_screen_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+                block_screen_sock.connect(tuple(msg['address']))
+                with open(file_name, 'rb') as f:
+                    data = f.read()
+                    msg = compress(data, 9)
+                    f.close()
+                msg_len = len(msg)
+                while msg_len > 50000:
+                    header = str(50000) + ' ' * (16 - len(str(50000)))
+                    block_screen_sock.send(header.encode('utf-8'))
+                    block_screen_sock.send(msg[:50000])
+                    msg_len = msg_len - 50000
+                    msg = msg[50000:]
+                header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
+                block_screen_sock.send(header.encode('utf-8'))
+                block_screen_sock.send(msg[:msg_len])
+                block_screen_sock.close()
+            else:
+                connections[addr]['block_screen'] = False
+
 
     def ShareFile(self, comp):
         for addr in connections:
