@@ -199,6 +199,11 @@ def Disconnect(addr):
 
 
 def block_input(comp, block):
+    if comp == 'all':
+        for addr in connections:
+            send_msg(connections[addr]['control_conn'], 'block_input', block_input=block)
+            connections[addr]['block_input'] = block
+        return
     for addr in connections:
         if connections[addr]['comp'] == comp:
             send_msg(connections[addr]['control_conn'], 'block_input', block_input=block)
@@ -401,6 +406,10 @@ class MainWindow(UI.MainWindow_UI):
 
     def group_view(self):
         self.waitingLabal.setParent(None)
+        self.blockInputButton.clicked.connect(
+            lambda: block_input('all', True))
+        self.unblockInputButton.clicked.connect(
+            lambda: block_input('all', False))
         for addr in connections:
             num = eval(connections[addr]['comp'].objectName().strip('comp'))
             for row in range(self.row_limit):
@@ -451,7 +460,9 @@ class MainWindow(UI.MainWindow_UI):
                         self.tab_view.blockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), True))
                         self.tab_view.unblockInputAction.triggered.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), False))
                         self.tab_view.shareScreenAction.triggered.connect(lambda: StartScreenSharing(self.tab_view.tabWidget.currentWidget()))
-                        self.tab_view.blockScreenButton.clicked.connect(lambda: self.BlockScreen(self.tab_view.tabWidget.currentWidget(), True))
+                        # Buttons
+                        self.tab_view.blockInputButton.clicked.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), True))
+                        self.tab_view.unblockInputButton.clicked.connect(lambda: block_input(self.tab_view.tabWidget.currentWidget(), False))
                         self.tab_view.blockScreenButton.clicked.connect(lambda: self.BlockScreen(self.tab_view.tabWidget.currentWidget()))
                         self.tab_view.chatButton.clicked.connect(lambda: self.Chat(self.tab_view.tabWidget.currentWidget()))
                         self.tab_view.shareFileButton.clicked.connect(lambda: self.ShareFile(self.tab_view.tabWidget.currentWidget()))
@@ -622,7 +633,6 @@ class MainWindow(UI.MainWindow_UI):
                 send_msg(self.server, 'chat', msg=self.chat_ui.lineEdit.text())
 
 
-    def BlockScreen(self, comp, block=True):
     def BlockScreen(self, comp):
         for addr in connections:
             if connections[addr]['comp'] == comp:

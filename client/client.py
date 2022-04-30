@@ -310,10 +310,8 @@ class BlockScreen(UI.ShareScreenWindow):
             block_screen_sock.close()
             return
         img = b''
-            print(img_len)
         while img_len:
             msg = conn.recv(eval(img_len.decode('utf-8')))
-            print(len(msg), eval(img_len.decode('utf-8')))
             while len(msg) != eval(img_len.decode('utf-8')):
                 msg += conn.recv(eval(img_len.decode('utf-8'))-len(msg))
             img += msg
