@@ -134,7 +134,7 @@ class Listener(QObject):
             if msg['type'] == 'message':
                 if msg['msg'] == 'admin_connected':
                     try:
-                        SOCKETS['admin_ip'] = msg['ip']
+                        SOCKETS['admin_name'] = msg['name']
                         self.admin_connected.emit(msg['address'])
                     except TypeError:
                         self.admin_connected.emit(tuple(msg['address']))
@@ -549,13 +549,16 @@ class Chat(QObject):
         WINDOWS['chat_ui'] = self.ui
         self.ui.show()
         self.ui.lineEdit.returnPressed.connect(self.on_press)
+        self.ui.close_event.connect(self.on_close)
 
     def on_press(self):
         if SOCKETS['admin']:
-            send_msg(SOCKETS['server'], 'chat', recv=SOCKETS['admin_ip'], msg=self.ui.lineEdit.text())
+            send_msg(SOCKETS['server'], 'chat', msg=self.ui.lineEdit.text(), name=SOCKETS['admin_name'])
             return
         send_msg(SOCKETS['server'], 'chat', msg=self.ui.lineEdit.text())
-        # print(self.ui.lineEdit.text())
+
+    def on_close(self, event):
+        event['event'].ignore()
 
 def alert():
     if SOCKETS['admin_msg_sock']:
@@ -662,7 +665,7 @@ def mouse_and_keyboard_hook():
             if kb.flags == 16 or kb.flags == 144 or not BLOCK_INPUT:
                 # call the next hook unless you want to block it
                 return windll.user32.CallNextHookEx(kb_hook, nCode, wParam, lParam)
-        alert()
+            alert()
         return 1
         # print(f"vkCode - {kb.vkCode}, scanCode - {kb.scanCode}, flags - {kb.flags}")
 

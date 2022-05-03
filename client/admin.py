@@ -126,7 +126,7 @@ class Listener(QObject):
             if msg['type'] == 'message':
                 if msg['msg'] == 'client_connected':
                     conn, addr = self.client_sock.accept()  # establish connection with client
-                    connections[addr] = {'conn': conn, 'name':msg['name'], 'ip':msg['ip']}
+                    connections[addr] = {'conn': conn, 'name':msg['name']}
                     try:
                         self.client_connected.emit(addr)
                     except TypeError:
@@ -137,9 +137,10 @@ class Listener(QObject):
                     except TypeError:
                         self.client_disconnected.emit(tuple(msg['address']))
             if msg['type'] == 'chat':
-                if WINDOWS.get('chat'):
-                    print(WINDOWS['chat'])
-                    WINDOWS['chat'].listWidget.addItem(msg['msg'])
+                for addr in connections:
+                    if connections[addr]['name'] == msg['name']:
+                        if connections[addr].get('chat'):
+                            connections[addr]['chat'].listWidget.addItem(msg['msg'])
                 # else:
                 #     for addr in connections:
                 #         print(msg['msg'].split(':'))
@@ -698,7 +699,7 @@ class MainWindow(UI.MainWindow_UI):
                     break
                 if msg['type'] == "alert":
                     # print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
-                    self.tab_view.alerts.addItem(f"ALERT! ALERT! {addr} {msg['alert']}")
+                    self.tab_view.alerts.addItem(f"{connections[addr]['name']} is {msg['alert']}")
             except ConnectionResetError or OSError:
                 print(f"handle_client_msg2: {addr} disconnected")
                 Thread(target=Disconnect, args=(addr,), daemon=True).start()
@@ -706,22 +707,29 @@ class MainWindow(UI.MainWindow_UI):
 
 
     def Chat(self, comp):
-        global WINDOWS
-        self.chat_ui = UI.ChatBox_UI()
-        # if not WINDOWS.get('chat'):
-        #     WINDOWS['chat'] =
-        WINDOWS['chat'] = self.chat_ui
-        self.chat_ui.show()
-        self.chat_ui.lineEdit.returnPressed.connect(lambda: on_press(comp))
+        def on_close(event):
+            for addr in connections:
+                if connections[addr]['chat'].objectName() == event['name']:
+                    connections[addr]['chat'].setParent(None)
+                    connections[addr].pop('chat')
+
+        for addr in connections:
+            if connections[addr]['comp'] == comp:
+                if not connections[addr].get('chat'):
+                    self.chat_ui = UI.ChatBox_UI()
+                    connections[addr]['chat'] = self.chat_ui
+                    connections[addr]['chat'].setObjectName(connections[addr]['name'])
+                    connections[addr]['chat'].show()
+                    connections[addr]['chat'].lineEdit.returnPressed.connect(lambda: on_press(comp))
+                    connections[addr]['chat'].close_event.connect(on_close)
+                break
 
         def on_press(comp):
             for addr in connections:
                 if connections[addr]['comp'] == comp:
-                    send_msg(self.server, 'chat', msg=self.chat_ui.lineEdit.text(),
-                             recv=connections[addr]['ip'])
+                    send_msg(self.server, 'chat', msg=connections[addr]['chat'].lineEdit.text(),
+                             name=connections[addr]['name'])
                     break
-            else:
-                send_msg(self.server, 'chat', msg=self.chat_ui.lineEdit.text())
 
 
     def BlockScreen(self, comp):

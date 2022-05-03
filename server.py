@@ -100,15 +100,15 @@ def new_connection(conn, addr):
                     if connection == conn:
                         continue
                     if not conn_list[connection]['connected_to_admin']:
-                        send_msg(conn, 'message', msg='client_connected', name=user_get('username', 'address', str(connection.getpeername())), ip=connection.getpeername())
+                        send_msg(conn, 'message', msg='client_connected', name=user_get('username', 'address', str(connection.getpeername())))
                         conn_list[connection]['connected_to_admin'] = True
-                        send_msg(connection, 'message', msg='admin_connected', address=msg['address'], ip=conn.getpeername())
+                        send_msg(connection, 'message', msg='admin_connected', address=msg['address'], name=user_get('username', 'address', str(conn.getpeername())))
             if msg['msg'] == 'client_connected':
                 for connection in conn_list:
                     if conn_list[connection].get('priority', 'none') == 'admin':
-                        send_msg(connection, 'message', msg='client_connected', name=user_get('username', 'address', str(conn.getpeername())), ip=conn.getpeername())
+                        send_msg(connection, 'message', msg='client_connected', name=user_get('username', 'address', str(conn.getpeername())))
                         conn_list[conn]['connected_to_admin'] = True
-                        send_msg(conn, 'message', msg='admin_connected', address=(connection.getpeername()[0], 13131), ip=connection.getpeername())
+                        send_msg(conn, 'message', msg='admin_connected', address=(connection.getpeername()[0], 13131), name=user_get('username', 'address', str(connection.getpeername())))
         if msg['type'] == 'chat':
             if msg.get('command'):
                 pass
@@ -116,13 +116,13 @@ def new_connection(conn, addr):
                     pass
             else:
                 #private message
-                send_msg(conn, 'chat', msg=f"YOU: {msg['msg']}", sender=conn.getpeername())
-                if msg.get('recv'):
+                if msg.get('name'):
                     print(conn_list)
                     for connection in conn_list:
-                        if connection.getpeername() == tuple(msg['recv']):
+                        if user_get('username', 'address', str(connection.getpeername())) == msg['name']:
                             # print(msg['msg'])
-                            send_msg(connection, 'chat', msg=f"{user_get('username', 'address', str(conn.getpeername()))}: {msg['msg']}")
+                            send_msg(conn, 'chat', msg=f"YOU: {msg['msg']}", name=msg['name'])
+                            send_msg(connection, 'chat', msg=f"{user_get('username', 'address', str(conn.getpeername()))}: {msg['msg']}", name=user_get('username', 'address', str(conn.getpeername())))
 
 
     sign_out(str(addr))

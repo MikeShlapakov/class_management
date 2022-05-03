@@ -569,6 +569,8 @@ class TabView_UI(QMainWindow):
 
 
 class ChatBox_UI(QMainWindow):
+    close_event = pyqtSignal(dict)
+
     def __init__(self, parent=None):
         super(ChatBox_UI, self).__init__(parent)
         self.horizontalLayout = QHBoxLayout(self)
@@ -587,6 +589,9 @@ class ChatBox_UI(QMainWindow):
         self.horizontalLayout.addWidget(self.groupBox)
 
         self.setCentralWidget(self.groupBox)
+
+    def closeEvent(self,event, *args, **kwargs):
+        self.close_event.emit({"name": self.objectName(), "event": event})
 
 
 class ShareScreenWindow(QFrame):
