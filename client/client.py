@@ -350,17 +350,17 @@ class RecvFile():
             return
         encoder = msg['encoder']
         msg_len = conn.recv(16)
-        msg = b''
+        file_data = b''
         while msg_len:
             print(msg_len)
-            msg += conn.recv(eval(msg_len.decode()))
-            time.sleep(0.02)
+            msg = conn.recv(eval(msg_len.decode('utf-8')))
+            while len(msg) != eval(msg_len.decode('utf-8')):
+                msg += conn.recv(eval(msg_len.decode('utf-8'))-len(msg))
+            file_data += msg
             msg_len = conn.recv(16)
-            print(msg_len)
-            print(msg_len.decode())
         # msg = decompress(msg).decode()
-        with open(f'{os.path.split(__file__)[0]}/{file_name}', 'wb') as f:#, encoding=encoder) as f:
-            f.write(msg)
+        with open(f'{os.path.split(__file__)[0]}/{file_name}', 'w', encoding=encoder) as f:
+            f.write(file_data.decode())
         sock.close()
         conn.close()
 

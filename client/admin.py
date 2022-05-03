@@ -506,7 +506,7 @@ class MainWindow(UI.MainWindow_UI):
         self.shareScreenButton.clicked.connect(StartScreenSharingAll)
         self.stopShareScreenButton.clicked.connect(StopScreenSharingAll)
         # self.chatButton.clicked.connect(lambda: self.Chat(self.tab_view.tabWidget.currentWidget()))
-        # self.shareFileButton.clicked.connect(lambda: self.ShareFile('all'))
+        self.shareFileButton.clicked.connect(lambda: self.ShareFile('all'))
         for addr in connections:
             num = eval(connections[addr]['comp'].objectName().strip('comp'))
             for row in range(self.row_limit):
@@ -849,68 +849,69 @@ class MainWindow(UI.MainWindow_UI):
 
 
     def ShareFile(self, comp):
-        for addr in connections:
-            if connections[addr]['comp'] == comp:
-                dialog = QFileDialog()
-                dialog.setFileMode(QFileDialog.AnyFile)
-                dialog.setFilter(QDir.Files)
+        dialog = QFileDialog()
+        dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setFilter(QDir.Files)
+        file_name = []
+        if dialog.exec_():
+            file_name = dialog.selectedFiles()
 
-                if dialog.exec_():
-                    file_name = dialog.selectedFiles()
-                    for file in file_name:
-                        send_msg(connections[addr]['handle_msg_conn'], 'share_file')
-                        msg = get_msg(connections[addr]['conn'])
-                        if not msg:
-                            return
-                        if msg['type'] == 'bind':
-                            share_file_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-                            share_file_sock.connect(tuple(msg['address']))
-                            head, name = os.path.split(file)
-                            print(name, head)
-                            for e in all_codecs:
-                                try:
-                                    name = name.encode(e)
-                                except UnicodeEncodeError:
-                                    pass
-                                else:
-                                    print(name, e)
-                                    send_msg(share_file_sock, 'file_name', name=str(name), encoder=e)
-                                    break
+        for file in file_name:
+            for addr in connections:
+                if connections[addr]['comp'] == comp or comp == 'all':
+                    send_msg(connections[addr]['handle_msg_conn'], 'share_file')
+                    msg = get_msg(connections[addr]['conn'])
+                    if not msg:
+                        return
+                    if msg['type'] == 'bind':
+                        share_file_sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+                        share_file_sock.connect(tuple(msg['address']))
+                        head, name = os.path.split(file)
+                        print(name, head)
+                        for e in all_codecs:
+                            try:
+                                name = name.encode(e)
+                            except UnicodeEncodeError:
+                                pass
                             else:
-                                print('Cant find encoder for the name')
+                                print(name, e)
+                                send_msg(share_file_sock, 'file_name', name=str(name), encoder=e)
+                                break
+                        else:
+                            print('Cant find encoder for the name')
 
-                            for e in all_codecs:
-                                try:
-                                    f=open(file, 'r', encoding=e)
-                                    data = f.read()
-                                    msg = data.encode()
-                                    # msg = compress(data.encode(), 9)
-                                    f.close()
-                                except UnicodeDecodeError:
-                                    pass
-                                else:
-                                    print(e)
-                                    send_msg(share_file_sock, 'encoder', encoder=e)
-                                    break
+                        for e in all_codecs:
+                            try:
+                                f=open(file, 'r', encoding=e)
+                                data = f.read()
+                                msg = data.encode()
+                                # msg = compress(data.encode(), 9)
+                                f.close()
+                            except UnicodeDecodeError:
+                                pass
                             else:
-                                print('Cant find encoder for the name')
+                                print(e)
+                                send_msg(share_file_sock, 'encoder', encoder=e)
+                                break
+                        else:
+                            print('Cant find encoder for the name')
 
-                            msg_len = len(msg)
-                            print(msg_len)
-                            while msg_len > 50000:
-                                header = str(50000) + ' ' * (16 - len(str(50000)))
-                                share_file_sock.send(header.encode())
-                                share_file_sock.send(msg[:50000])
-                                msg_len = msg_len - 50000
-                                msg = msg[50000:]
-                            header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
-                            print(header)
+                        msg_len = len(msg)
+                        print(msg_len)
+                        while msg_len > 50000:
+                            header = str(50000) + ' ' * (16 - len(str(50000)))
                             share_file_sock.send(header.encode())
-                            share_file_sock.send(msg)
-                            share_file_sock.close()
-                            return
-                    return
-
+                            share_file_sock.send(msg[:50000])
+                            msg_len = msg_len - 50000
+                            msg = msg[50000:]
+                        header = str(msg_len) + ' ' * (16 - len(str(msg_len)))
+                        print(header)
+                        share_file_sock.send(header.encode())
+                        share_file_sock.send(msg)
+                        share_file_sock.close()
+                    if comp != 'all':
+                        break
+        return
 
 def main(server_sock):
     global WINDOWS
