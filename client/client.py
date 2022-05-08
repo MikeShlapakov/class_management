@@ -561,7 +561,7 @@ class Chat(QObject):
         event['event'].ignore()
 
 def alert():
-    if SOCKETS['admin_msg_sock']:
+    if SOCKETS.get('admin_msg_sock'):
         send_msg(SOCKETS['admin_msg_sock'], 'alert', addr=SOCKETS['admin'].getsockname(), alert='Trying take over the keyboard')
 
 
@@ -619,6 +619,16 @@ class LoginWindow(QMainWindow):  # TODO splash screen
                 print('left login')
 
 
+def keepAlive():
+    global ALIVE
+    while True:
+        time.sleep(5)
+        if not ALIVE:
+            if SOCKETS.get('admin_msg_sock'):
+                send_msg(SOCKETS['admin_msg_sock'], 'alert', addr=SOCKETS['admin'].getsockname(),
+                         alert='sleeping')
+        ALIVE = False
+
 class MSLLHOOKSTRUCT(Structure): _fields_ = [
     ('x', DWORD),
     ('y', DWORD),
@@ -659,8 +669,9 @@ def mouse_and_keyboard_hook():
         """
         Processes a low level Windows keyboard event.
         """
-        global BLOCK_INPUT
+        global BLOCK_INPUT, ALIVE
         if nCode == win32con.HC_ACTION:
+            ALIVE = True
             kb = KBDLLHOOKSTRUCT.from_address(lParam)
             if kb.flags == 16 or kb.flags == 144 or not BLOCK_INPUT:
                 # call the next hook unless you want to block it
@@ -690,6 +701,7 @@ def mouse_and_keyboard_hook():
 
 if __name__ == '__main__':
     BLOCK_INPUT = False
+    ALIVE = True
     # ADDR = '192.168.66.148'
     ADDR = '192.168.31.208'
     # ADDR = '172.16.1.23'
@@ -699,9 +711,13 @@ if __name__ == '__main__':
                'screen_sharing_sock': None,
                'control_sock': None,
                'msg_sock': None}
-    THREADS = {'hook_thread': Thread(target=mouse_and_keyboard_hook, daemon=True), 'screen_sharing_thread': None,
-               'control_thread': None, 'msg_thread': None}
+    THREADS = {'hook_thread': Thread(target=mouse_and_keyboard_hook, daemon=True),
+               'screen_sharing_thread': None,
+               'control_thread': None,
+               'msg_thread': None,
+               'keep_alive': Thread(target=keepAlive, daemon=True)}
     THREADS['hook_thread'].start()
+    THREADS['keep_alive'].start()
     app = QApplication(sys.argv)
     WINDOWS = {}
     LoginWindow()

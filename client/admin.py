@@ -141,12 +141,6 @@ class Listener(QObject):
                     if connections[addr]['name'] == msg['name']:
                         if connections[addr].get('chat'):
                             connections[addr]['chat'].listWidget.addItem(msg['msg'])
-                # else:
-                #     for addr in connections:
-                #         print(msg['msg'].split(':'))
-                #         if connections[addr]['name'] == msg['msg'].split(':')[0]:
-                #             WINDOWS['main_window'].Chat(connections[addr]['comp'])
-                #             print('asd')
         self.finished.emit()
 
 
@@ -429,9 +423,9 @@ def StopScreenSharingAll():
             connections[addr]['screen_sharing_thread'].start()
 
 
-class MainWindow(UI.MainWindow_UI):
+class ClassWindow(UI.ClassWindow_UI):
     def __init__(self, socket):
-        super(MainWindow, self).__init__()
+        super(ClassWindow, self).__init__()
         self.server = socket
         self.lock = threading.Lock()
         self.column_limit = 2
@@ -527,7 +521,7 @@ class MainWindow(UI.MainWindow_UI):
                         self.gridLayout_2.addWidget(connections[addr]['comp'], row, column, 1, 1)
                         connections[addr]['comp'].clicked.connect(self.tab_control)
         if 'tab_view' in WINDOWS:
-            WINDOWS['main_window'].show()
+            WINDOWS['class_window'].show()
             WINDOWS['tab_view'].close()
         print(connections)
         return
@@ -575,7 +569,7 @@ class MainWindow(UI.MainWindow_UI):
 
                         WINDOWS['tab_view'] = self.tab_view
                         WINDOWS['tab_view'].show()
-                        WINDOWS['main_window'].close()
+                        WINDOWS['class_window'].close()
                     else:
                         print("you cant connect to this computer")
 
@@ -698,8 +692,9 @@ class MainWindow(UI.MainWindow_UI):
                     Thread(target=Disconnect, args=(addr,), daemon=True).start()
                     break
                 if msg['type'] == "alert":
-                    # print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
-                    self.tab_view.alerts.addItem(f"{connections[addr]['name']} is {msg['alert']}")
+                    if WINDOWS.get('tab_view'):
+                        # print(f"ALERT! ALERT! {addr} is trying to take control over the keyboard")
+                        self.tab_view.alerts.addItem(f"{connections[addr]['name']} is {msg['alert']}")
             except ConnectionResetError or OSError:
                 print(f"handle_client_msg2: {addr} disconnected")
                 Thread(target=Disconnect, args=(addr,), daemon=True).start()
@@ -915,8 +910,8 @@ class MainWindow(UI.MainWindow_UI):
 
 def main(server_sock):
     global WINDOWS
-    main_window = MainWindow(server_sock)
-    WINDOWS['main_window'] = main_window
+    class_window = ClassWindow(server_sock)
+    WINDOWS['class_window'] = class_window
     print(WINDOWS)
 
 

@@ -4,20 +4,27 @@ from PyQt5.QtWidgets import *
 
 
 class CustomButton(QPushButton):
-    def __init__(self, parent=None, name='Button'):
+    def __init__(self, parent=None, name='Button', icon=None):
         super(CustomButton, self).__init__(parent)
         self.setText(name)
         self.setFont(QFont("Calibri", 14, QFont.Bold))
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setStyleSheet(u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
-                           "border-radius: 5px;\n"
-                           "color: rgb(30, 30, 40);\n"
-                           "padding-left: 20px;\n"
-                           "padding-right: 20px;\n"
-                           "background-color: rgb(65, 65, 90);}"
-                           "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
-                           "color:rgb(180, 180, 180);\n"
-                           "background-color: rgb(80, 80, 120);}")
+        self.style_bt_standard = (u"QPushButton{border: 2px solid rgb(50, 50, 80);\n"
+                                  "border-radius: 5px;\n"
+                                  "color: rgb(30, 30, 40);\n"
+                                  "padding-left: 20px;\n"
+                                  "border-left: 28px solid rgb(65, 65, 90);"
+                                  "padding-right: 20px;\n"
+                                  "background-color: rgb(65, 65, 90);}"
+                                  "QPushButton:hover{border: 2px solid rgb(115, 115, 180);\n"
+                                  "color:rgb(180, 180, 180);\n"
+                                  "background-color: rgb(80, 80, 120);}")
+        # if not icon:
+        #     self.style_bt_standard.replace('ICON', "save.jpg")
+        # else:
+        #     self.style_bt_standard.replace('ICON',icon)
+
+        self.setStyleSheet(self.style_bt_standard)
 
 
 class ComputerScreen(QFrame):
@@ -37,29 +44,28 @@ class ComputerScreen(QFrame):
         layout = QGridLayout()
         self.top_left = QLabel()
         self.top_left.setObjectName('top_left')
-        layout.addWidget(self.top_left,0,0)
+        layout.addWidget(self.top_left, 0, 0)
 
         self.top_right = QLabel()
         self.top_right.setObjectName('top_right')
-        layout.addWidget(self.top_right,0,1)
+        layout.addWidget(self.top_right, 0, 1)
 
         self.bottom_left = QLabel()
         self.bottom_left.setObjectName('bottom_left')
-        layout.addWidget(self.bottom_left,1,0)
+        layout.addWidget(self.bottom_left, 1, 0)
 
         self.bottom_right = QLabel()
         self.bottom_right.setObjectName('bottom_right')
-        layout.addWidget(self.bottom_right,1,1)
+        layout.addWidget(self.bottom_right, 1, 1)
 
         layout.setSpacing(0)
         self.setLayout(layout)
         self.setStyleSheet(u"QFrame#frame{background-color: rgb(150, 150, 150);\n"
-                                                u"border-radius: 5px;}\n"
-                                                u"QFrame#frame:hover{\n"
-                                                u"border: 5px solid rgb(80, 180, 80);\n"
-                                                u"border-radius: 5px;\n"
-                                                u"}")
-
+                           u"border-radius: 5px;}\n"
+                           u"QFrame#frame:hover{\n"
+                           u"border: 5px solid rgb(80, 180, 80);\n"
+                           u"border-radius: 5px;\n"
+                           u"}")
 
     def mousePressEvent(self, event):
         self.params = {"name": self.objectName(), "action": "Click"}
@@ -111,6 +117,48 @@ class ComputerScreenTab(QTabWidget):
     #
     # def leaveEvent(self, *args, **kwargs):
     #     self.clicked.emit({"name": self.objectName(), "action":"Leave"})
+
+
+class ClassesTree(QTreeWidget):
+    double_clicked = pyqtSignal(dict)
+
+    def __init__(self, parent=None):
+        super(ClassesTree, self).__init__(parent)
+        self.setObjectName('tree')
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(sizePolicy)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setColumnCount(1)
+        self.setHeaderHidden(True)
+        self.setFont(QFont("Calibri", 14, QFont.Bold))
+        self.setStyleSheet(u"QTreeWidget{\n"
+                                         "color: rgb(30, 30, 40);\n"
+                                         "background-color: rgb(50, 50, 70);"
+                                         "border-radius: 15px;"
+                                         "padding: 10px 25px;"
+                                         "}\n")
+
+    # def mousePressEvent(self, event):
+    #     self.params = {"name": self.objectName(), "action": "Click"}
+    #
+    # def mouseReleaseEvent(self, event):
+    #     if self.params == {"name": self.objectName(), "action": "Click"}:
+    #         QTimer.singleShot(QApplication.instance().doubleClickInterval(),
+    #                           self.performSingleClickAction)
+    #     else:
+    #         self.clicked.emit(self.params)
+    def add_tree(self, tree_name, items):
+        new_tree = QTreeWidgetItem(self)
+        new_tree.setText(0, tree_name)
+        self.addTopLevelItem(new_tree)
+        tree_list = []
+        for i in range(len(items)):
+            tree_list.append(QTreeWidgetItem(new_tree))
+            tree_list[i].setText(0, items[i])
+
+    # def itemDoubleClicked(self, event):
+    #     print(event)
+    #     self.double_clicked.emit({"class": self.currentItem(), "name": self.currentItem().text(0), "header": self.headerItem()})
 
 
 class CustomDialog(QDialog):
@@ -355,6 +403,206 @@ class MainWindow_UI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setObjectName(u"MainWindow")
+        self.resize(790, 604)
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setObjectName(u"centralwidget")
+        self.resize(1000, 700)
+        palette = QPalette()
+        brush = QBrush(QColor(30, 30, 40))
+        palette.setBrush(QPalette.Active, QPalette.Window, brush)
+        palette.setBrush(QPalette.Inactive, QPalette.Window, brush)
+        palette.setBrush(QPalette.Disabled, QPalette.Window, brush)
+        self.setPalette(palette)
+
+        font = QFont()
+        font.setFamily(u"Calibri")
+        font.setPointSize(48)
+        font.setBold(True)
+        font.setWeight(96)
+
+        self.centralwidget.setPalette(palette)
+
+        self.main_horizontalLayout = QHBoxLayout(self.centralwidget)
+        self.main_horizontalLayout.setObjectName(u"verticalLayout_2")
+
+        self.menu_frame = QFrame()
+        self.menu_frame.setObjectName("menu_frame")
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.menu_frame.setSizePolicy(sizePolicy)
+        self.menu_frame.setMinimumSize(QSize(50, 0))
+        self.menu_frame.setMaximumSize(QSize(50, 16777215))
+
+        verticalLayout = QVBoxLayout()
+        verticalLayout.setObjectName(u"verticalLayout_2")
+        self.menu_frame.setLayout(verticalLayout)
+        # self.menu_frame.setStyleSheet(u"QFrame#menu_frame{background-color: rgb(150, 150, 150);\n"
+        #                               u"border-radius: 5px;}\n"
+        #                               u"QFrame#menu_frame:hover{\n"
+        #                               u"border: 5px solid rgb(80, 180, 80);\n"
+        #                               u"border-radius: 5px;\n"
+        #                               u"}")
+
+        # HOME Button
+        self.home_btn = QPushButton(self.menu_frame)
+        self.home_btn.setText('HOME')
+        self.home_btn.setFont(QFont("Calibri", 18, QFont.Bold))
+        self.home_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.home_btn.setStyleSheet(u"QPushButton{"
+                             u"background-image: url(cil-home.png);"
+                             u"background-position: left center;"
+                             u"background-repeat: no-repeat;"
+                             # "border-radius: 5px;\n"
+                             "color: rgb(30, 30, 40);\n"
+                             "padding-left: 40px;\n"
+                             "border-left: 5px solid rgb(65, 65, 90);"
+                             "text-align: center;"
+                             # "padding-right: 20px;\n"
+                             "background-color: rgb(65, 65, 90);}"
+                             "QPushButton:hover{"
+                             "padding-left: 40px;\n"
+                             "border-left: 5px solid rgb(80, 80, 120);"
+                             "color:rgb(180, 180, 180);\n"
+                             "background-color: rgb(80, 80, 120);}")
+        # button.setLayoutDirection(Qt.LeftToRight)
+        self.home_btn.setToolTip('home')
+        self.home_btn.clicked.connect(lambda: self.toggleMenu(200, True))
+
+        verticalLayout.addWidget(self.home_btn)
+
+        # Add Class Button
+        self.add_class_btn = QPushButton(self.menu_frame)
+        self.add_class_btn.setText('ADD CLASS')
+        self.add_class_btn.setFont(QFont("Calibri", 18, QFont.Bold))
+        self.add_class_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.add_class_btn.setStyleSheet(u"QPushButton{"
+                             u"background-image: url(cil-user-follow.png);"
+                             u"background-position: left center;"
+                             u"background-repeat: no-repeat;"
+                             # "border-radius: 5px;\n"
+                             "color: rgb(30, 30, 40);\n"
+                             "padding-left: 40px;\n"
+                             "border-left: 5px solid rgb(65, 65, 90);"
+                             "text-align: center;"
+                             # "padding-right: 20px;\n"
+                             "background-color: rgb(65, 65, 90);}"
+                             "QPushButton:hover{"
+                             "padding-left: 40px;\n"
+                             "border-left: 5px solid rgb(80, 80, 120);"
+                             "color:rgb(180, 180, 180);\n"
+                             "background-color: rgb(80, 80, 120);}")
+        # button.setLayoutDirection(Qt.LeftToRight)
+        self.add_class_btn.setToolTip('add Class')
+
+        verticalLayout.addWidget(self.add_class_btn)
+
+        # =======================================================
+        self.main_horizontalLayout.addWidget(self.menu_frame)
+
+        self.verticalLayout_2 = QVBoxLayout()
+        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.verticalSpacer_1 = QSpacerItem(0, 40, QSizePolicy.Minimum, QSizePolicy.Preferred)
+
+        self.verticalLayout_2.addItem(self.verticalSpacer_1)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalSpacer = QSpacerItem(250, 0, QSizePolicy.Minimum, QSizePolicy.Preferred)
+
+        self.horizontalLayout.addItem(self.horizontalSpacer)
+
+        self.label = QLabel(self.centralwidget)
+        self.label.setObjectName(u"label")
+        self.label.setEnabled(False)
+        self.label.setFont(font)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet(u"QLabel{\n"
+                                 "color: rgb(255, 170, 0);\n"
+                                 # "background-color: rgb(50, 50, 70);"
+                                 "border-radius: 15px;"
+                                 "padding: 40px 20px;"
+                                 "}\n")
+
+        # self.verticalLayout_2.addWidget(self.label)
+
+        self.horizontalLayout.addWidget(self.label)
+
+        self.horizontalSpacer_2 = QSpacerItem(250, 0, QSizePolicy.Minimum, QSizePolicy.Preferred)
+
+        self.horizontalLayout.addItem(self.horizontalSpacer_2)
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout)
+
+        self.verticalSpacer_2 = QSpacerItem(0, 20, QSizePolicy.Minimum, QSizePolicy.Preferred)
+        self.verticalLayout_2.addItem(self.verticalSpacer_2)
+
+        # ----------------------------------------------------------------------
+        # Tree of projects Layout
+
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.horizontalSpacer_3 = QSpacerItem(100, 0, QSizePolicy.Preferred, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_3)
+
+        # ----------------------------------------------------------------------
+        # Tree
+        self.classes_tree = ClassesTree()
+        self.horizontalLayout_2.addWidget(self.classes_tree)
+        # ----------------------------------------------------------------------
+
+        self.horizontalSpacer_4 = QSpacerItem(100, 0, QSizePolicy.Preferred, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_4)
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout_2)
+
+        # ----------------------------------------------------------------------
+
+        self.verticalSpacer_3 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Preferred)
+        self.verticalLayout_2.addItem(self.verticalSpacer_3)
+
+        # ----------------------------------------------------------------------
+        self.main_horizontalLayout.addLayout(self.verticalLayout_2)
+
+        self.setCentralWidget(self.centralwidget)
+
+        self.retranslateUi()
+
+        QMetaObject.connectSlotsByName(self)
+
+    def retranslateUi(self):
+        self.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
+        self.label.setText(QCoreApplication.translate("LoginWindow", u"MY CLASS", None))
+
+    def toggleMenu(self, maxWidth, enable):
+        if enable:
+            # GET WIDTH
+            width = self.menu_frame.width()
+            maxExtend = maxWidth
+            standard = 50
+
+            # SET MAX WIDTH
+            if width == 50:
+                widthExtended = maxExtend
+            else:
+                widthExtended = standard
+
+            # ANIMATION
+            self.animation = QPropertyAnimation(self.menu_frame, b"minimumWidth")
+            self.animation.setDuration(300)
+            self.animation.setStartValue(width)
+            self.animation.setEndValue(widthExtended)
+            self.animation.setEasingCurve(QEasingCurve.InOutQuart)
+            self.animation.start()
+
+
+class ClassWindow_UI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setObjectName(u"ClassWindow")
         self.resize(1000, 700)
         palette = QPalette()
         brush = QBrush(QColor(30, 30, 40))
@@ -381,7 +629,7 @@ class MainWindow_UI(QMainWindow):
 
         self.widget = QFrame(self.centralwidget)
         self.widget.setObjectName(u"widget")
-        self.widget.setMinimumSize(QSize(960, 540))
+        self.widget.setMinimumSize(QSize(70, 0))
         self.widget.setStyleSheet("background-color: rgb(65, 65, 90);")
         self.widget.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
 
@@ -397,8 +645,8 @@ class MainWindow_UI(QMainWindow):
         self.waitingLabal.setFont(font)
         self.waitingLabal.setAlignment(Qt.AlignCenter)
         self.waitingLabal.setStyleSheet(u"QLabel{\n"
-                                 "	color: rgb(30, 30, 40);\n"
-                                 "}\n")
+                                        "	color: rgb(30, 30, 40);\n"
+                                        "}\n")
         self.gridLayout_2.addWidget(self.waitingLabal)
 
         self.gridLayout.addWidget(self.widget, 1, 1, 1, 1)
@@ -439,14 +687,14 @@ class MainWindow_UI(QMainWindow):
         # self.alertBox.setSizePolicy(QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred))
         self.verticalLayout3 = QVBoxLayout(self.logBox)
         self.logBox.setStyleSheet("QGroupBox::title"
-                                    "{"
-                                    "border-top-left-radius: 9px;"
-                                    "border-top-right-radius: 9px;"
-                                    "padding: 2px 82px;"
-                                    "background-color: rgb(65, 65, 90);"
-                                    "font-weight:bold;"
-                                    "color: rgb(30, 30, 40);"
-                                    "}")
+                                  "{"
+                                  "border-top-left-radius: 9px;"
+                                  "border-top-right-radius: 9px;"
+                                  "padding: 2px 82px;"
+                                  "background-color: rgb(65, 65, 90);"
+                                  "font-weight:bold;"
+                                  "color: rgb(30, 30, 40);"
+                                  "}")
 
         self.logs = QListWidget(self.logBox)
         self.verticalLayout3.addWidget(self.logs)
@@ -461,9 +709,8 @@ class MainWindow_UI(QMainWindow):
         self.toolBar.addWidget(self.shareFileButton)
         self.toolBar.addWidget(self.logBox)
 
-
     def retranslateUi(self, Window):
-        Window.setWindowTitle(QCoreApplication.translate("MainWindow", u"My Class", None))
+        Window.setWindowTitle(QCoreApplication.translate("ClassWindow", u"My Class", None))
     # retranslateUi
 
 
@@ -523,7 +770,6 @@ class TabView_UI(QMainWindow):
         self.chatButton = CustomButton(self.centralwidget, "CHAT")
         self.shareFileButton = CustomButton(self.centralwidget, "SHARE FILE")
         self.back_to_main_btn = CustomButton(self.centralwidget, "VIEW ALL")
-
 
     def _createToolBars(self):
         # File toolbar
@@ -590,7 +836,7 @@ class ChatBox_UI(QMainWindow):
 
         self.setCentralWidget(self.groupBox)
 
-    def closeEvent(self,event, *args, **kwargs):
+    def closeEvent(self, event, *args, **kwargs):
         self.close_event.emit({"name": self.objectName(), "event": event})
 
 
@@ -606,19 +852,19 @@ class ShareScreenWindow(QFrame):
         layout = QGridLayout()
         self.top_left = QLabel("1")
         self.top_left.setObjectName('top_left')
-        layout.addWidget(self.top_left,0,0)
+        layout.addWidget(self.top_left, 0, 0)
 
         self.top_right = QLabel("2")
         self.top_right.setObjectName('top_right')
-        layout.addWidget(self.top_right,0,1)
+        layout.addWidget(self.top_right, 0, 1)
 
         self.bottom_left = QLabel("3")
         self.bottom_left.setObjectName('bottom_left')
-        layout.addWidget(self.bottom_left,1,0)
+        layout.addWidget(self.bottom_left, 1, 0)
 
         self.bottom_right = QLabel("4")
         self.bottom_right.setObjectName('bottom_right')
-        layout.addWidget(self.bottom_right,1,1)
+        layout.addWidget(self.bottom_right, 1, 1)
 
         layout.setSpacing(0)
         self.setLayout(layout)
@@ -645,7 +891,6 @@ class BlockScreenWindow(QMainWindow):
             Qt.WindowStaysOnTopHint |
             Qt.FramelessWindowHint
         )
-
 
 
 if __name__ == "__main__":
@@ -682,9 +927,17 @@ if __name__ == "__main__":
     #                                         u"}")
     # comp2.label.setMinimumSize(QSize(240, 135))
     # comp2.label.setMaximumSize(QSize(1920, 1080))
+    def func(x, y):
+        print(1)
+        print(x.text(0), y)
 
     e.tabWidget.addTab(comp, '123')
     e.tabWidget.addTab(comp2, 'abs')
-    e = ShareScreenWindow()
+    e = MainWindow_UI()
     e.show()
+    e.classes_tree.add_tree('class1',['asd','qwe','123'])
+    e.classes_tree.add_tree('class2', ['asd', 'qwe', '123'])
+    e.classes_tree.itemDoubleClicked.connect(func)
+    # time.sleep(2)
+    # e.blockScreenButton.clicked.connect(lambda: e.toggleMenu(500, True))
     sys.exit(app.exec_())

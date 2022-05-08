@@ -19,6 +19,14 @@ def create_database():
     ''')
     # address - is user's address given when user connected
     # priority - is user's priority (admin/client)
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS classes(
+    classID INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    users TEXT);
+    ''')
+    # users - users who in the class
     db.commit()
 
 
@@ -112,3 +120,78 @@ def user_get(needed_var, searched_var_type, searched_var, *args):
             return result[0][0]
         else:
             return "This user doesn't exist"
+
+
+def add_class(class_name, users):
+    """
+    Adds new class to classes table
+    :param class_name: class name (string)
+    :param users: users names whose in the class (list)
+    :return: string
+    """
+    with sqlite3.connect("./model/Database.db") as db:
+        cursor = db.cursor()
+    # find user with matching name
+    cursor.execute("SELECT address FROM users WHERE priority = ?", ('admin',))
+    result = cursor.fetchall()
+    if result:
+        if result[0][0] is None:
+            return "Admin offline"
+        cursor.execute("SELECT * FROM classes WHERE name = ?", (class_name,))
+        result = cursor.fetchall()
+        if result:
+            return "This class is already exist, try another name"
+        # insert into classes table new class
+        cursor.execute(''' INSERT INTO classes(name, users) VALUES(?,?)''', (class_name, users))
+        db.commit()
+        return f"Class {class_name} added"
+    return "Something gone wrong. Can't find the admin in the system."
+
+
+def delete_class(class_name):
+    """
+    Delete the class from classes table
+    :param class_name: class name (string)
+    :return: string
+    """
+    with sqlite3.connect("./model/Database.db") as db:
+        cursor = db.cursor()
+
+    # find project with matching name and password
+    cursor.execute("SELECT * FROM classes WHERE name = ?", (class_name,))
+    result = cursor.fetchall()
+    if result:
+        cursor.execute('''DELETE FROM classes WHERE name = ?''', (class_name,))
+        db.commit()
+        return "Class deleted successfully"
+    return f"Couldn\'t find class named \"{class_name}\""
+
+
+def add_user(class_name, user_name):
+    """
+    Adds new class to classes table
+    :param class_name: class name (string)
+    :param user_name: user's name (string)
+    :return: string
+    """
+    with sqlite3.connect("./model/Database.db") as db:
+        cursor = db.cursor()
+    # find user with matching name
+    cursor.execute("SELECT address FROM users WHERE priority = ?", ('admin',))
+    result = cursor.fetchall()
+    if result:
+        if result[0][0] is None:
+            return "Admin offline"
+        cursor.execute("SELECT * FROM classes WHERE name = ?", (class_name,))
+        result = cursor.fetchall()
+        if result:
+            users = eval(result[0][1])
+            if user_name in users:
+                return f"This user is already in this class"
+            users.append(user_name)
+            # insert into classes table new class
+            cursor.execute('''UPDATE classes SET users = ? WHERE name = ?''', (str(users), class_name))
+            db.commit()
+            return f"User {user_name} added to {class_name}"
+        return "Something gone wrong. Can't find the class in the system"
+    return "Something gone wrong. Can't find the admin in the system."
