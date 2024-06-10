@@ -24,4 +24,12 @@ Run the SERVER (```python server.py```), then you can run the client (```python 
 You can Sign-in with a new client or log-in as an admin with ```user:admin pass:123```</br>
 </br>
 
-Have Fun!
+Have Fun!</br>
+</br>
+
+![image](https://github.com/MikeShlapakov/class_management/assets/76660778/46c30db6-242f-4f6d-b70f-9a8883fe35df)</br>
+![image](https://github.com/MikeShlapakov/class_management/assets/76660778/f537f87c-e332-4cca-94bf-8ee00febafe1)</br>
+![image](https://github.com/MikeShlapakov/class_management/assets/76660778/8f9a9dbe-23f4-48a1-b8ed-72ad65a54d34)</br>
+![image](https://github.com/MikeShlapakov/class_management/assets/76660778/9a0be862-9b2c-4741-85e0-c3d873400ea7)</br>
+![image](https://github.com/MikeShlapakov/class_management/assets/76660778/c145746a-9439-4af7-89bf-78a69aa622c9)</br>
+
